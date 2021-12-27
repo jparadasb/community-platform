@@ -38,6 +38,34 @@ const updateQueryParams = (url: string, key: string, val: string) => {
   window.history.pushState({ path: newUrl.toString() }, '', newUrl.toString())
 }
 
+const refreshQueryParams = (props: any) : void => {
+  const searchParams = new URLSearchParams(props.location.search)
+
+      const tagQuery = searchParams.get('tags')?.toString()
+      if (tagQuery) {
+        const tags = {}
+        tagQuery.split(',').forEach(tag => {
+          tags[tag] = true
+        })
+        props.howtoStore.updateSelectedTags(tags)
+      } else {
+        props.howtoStore.updateSelectedTags([])
+      }
+
+      const searchQuery = searchParams.get('search')?.toString()
+      if (searchQuery) {
+        props.howtoStore.updateSearchValue(searchQuery)
+      }
+      
+      if (!props.howtoStore?.searchValue) {
+        props.howtoStore.updateSearchValue("")
+      }
+
+      props.howtoStore.updateReferrerSource(
+        searchParams.get('source')?.toString(),
+      )
+}
+
 // First we use the @inject decorator to bind to the howtoStore state
 @inject('howtoStore', 'userStore', 'themeStore')
 // Then we can use the observer component decorator to automatically tracks observables and re-renders on change
@@ -51,27 +79,10 @@ export class HowtoList extends React.Component<any, IState> {
       isLoading: true,
     }
 
-    if (props.location.search) {
-      const searchParams = new URLSearchParams(props.location.search)
+    refreshQueryParams(props)
 
-      const tagQuery = searchParams.get('tags')?.toString()
-      if (tagQuery) {
-        const tags = {}
-        tagQuery.split(',').forEach(tag => {
-          tags[tag] = true
-        })
-
-        this.props.howtoStore.updateSelectedTags(tags)
-      }
-
-      const searchQuery = searchParams.get('search')?.toString()
-      if (searchQuery) {
-        this.props.howtoStore.updateSearchValue(searchQuery)
-      }
-
-      this.props.howtoStore.updateReferrerSource(
-        searchParams.get('source')?.toString(),
-      )
+    if (props.howtoStore?.searchValue) {
+      updateQueryParams(window.location.href, 'search', props.howtoStore?.searchValue)
     }
   }
   get injected() {
@@ -82,6 +93,12 @@ export class HowtoList extends React.Component<any, IState> {
   UNSAFE_componentWillMount() {
     if (!new RegExp(/source=how-to-not-found/).test(window.location.search)) {
       this.props.howtoStore.updateReferrerSource('')
+    }
+  }
+
+  componentDidUpdate(prevProps: any): void {
+    if (this.props.location.search !== prevProps.location.search) {
+      refreshQueryParams(this.props)
     }
   }
 

@@ -50,6 +50,18 @@ class TagsSelect extends Component<IProps, IState> {
     this.injectedProps.tagsStore.setTagsCategory(this.props.category)
   }
 
+  public componentDidUpdate(prevProps: IProps) {
+    const propsVal = { ...this.props.value, ...this.props.input!.value }
+    const selectedTags = Object.keys(propsVal);
+
+    const prevPropsVal = { ...prevProps.value, ...prevProps.input!.value }
+    const prevSelectedTags = Object.keys(prevPropsVal);
+
+    if (selectedTags.sort().join(",") !== prevSelectedTags.sort().join(",")) {
+      this.setState({ selectedTags })
+    }
+  }
+
   // emit values as {[tagKey]:true} object to be picked up by field
   public onSelectedTagsChanged(selected: ITag[]) {
     const selectedTags = selected.map(tag => tag._id)
