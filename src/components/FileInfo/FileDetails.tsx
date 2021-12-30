@@ -1,6 +1,5 @@
-import * as React from 'react'
 import Icon, { availableGlyphs } from '../Icons'
-import { Flex } from 'rebass'
+import { Flex } from 'rebass/styled-components'
 import Text from '../Text'
 import { IUploadedFileMeta } from 'src/stores/storage'
 import styled from 'styled-components'
@@ -15,7 +14,7 @@ interface IProps {
 const FileFlex = styled(Flex)`
   border: 2px solid black;
   border-radius: 5px;
-  background-color: ${theme.colors.yellow};
+  background-color: ${theme.colors.yellow.base};
   color: black;
 `
 

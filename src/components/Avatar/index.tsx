@@ -1,65 +1,80 @@
-import React from 'react'
+import { Component } from 'react'
 
-import { Image, ImageProps } from 'rebass'
-import Icon from 'src/components/Icons'
+import { Image, ImageProps } from 'rebass/styled-components'
 import { inject, observer } from 'mobx-react'
-import { UserStore, getUserAvatar } from 'src/stores/User/user.store'
+import { ProfileTypeLabel } from 'src/models/user_pp.models'
+import Workspace from 'src/pages/User/workspace/Workspace'
+import type { ThemeStore } from 'src/stores/Theme/theme.store'
+
+import MemberBadge from 'src/assets/images/badges/pt-member.svg'
+import { THEME_LIST } from 'src/themes'
 
 interface IProps extends ImageProps {
   width?: string
-  userName: string
-}
-
-interface IInjected extends IProps {
-  userStore: UserStore
+  profileType?: ProfileTypeLabel
+  themeStore?: ThemeStore
 }
 
 interface IState {
-  avatarUrl?: string
-  showFallback?: boolean
+  badgeProfileSrc?: string | null
 }
 
-@inject('userStore')
+@inject('userStore', 'themeStore')
 @observer
-export class Avatar extends React.Component<IProps, IState> {
+export class Avatar extends Component<IProps, IState> {
   constructor(props: IProps) {
     super(props)
     this.state = {}
-  }
-  get injected() {
-    return this.props as IInjected
   }
 
   // subscribe/unsubscribe from specific user profile message when
   // user updates their avatar (same url so by default will now be aware of change)
   componentDidMount() {
-    this.getAvatar(this.props.userName)
+    this.getProfileTypeBadge(this.props.profileType)
   }
 
-  async getAvatar(userName: string) {
-    const url = getUserAvatar(userName)
-    console.log('avatar', url)
-    this.setState({ avatarUrl: url })
+  public getProfileTypeBadge(type?: ProfileTypeLabel) {
+    const {width} = this.props;
+    const img = Workspace.findWorkspaceBadgeNullable(type, Number(width || 0) < 50)
+    this.setState({ badgeProfileSrc: img })
   }
-
   render() {
-    const { width, borderRadius } = this.props
-    const { showFallback, avatarUrl } = this.state
+    const { width } = this.props
+    const { badgeProfileSrc } = this.state
+
+    let avatarUrl = badgeProfileSrc || MemberBadge;
+
+    const th = this.props?.themeStore?.currentTheme
+
+    /**
+     * 🚨🚨🚨🚨🚨🚨
+     * 
+     *  HACKY WORKAROUND
+     * 
+     *  For the second instance (Project Kamp)
+     *  there are no membership levels or variations
+     *  to the membership type.
+     * 
+     *  So that means we _always_ want the default badge
+     *  bundled with the PlatformTheme.
+     * 
+     * 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+     */
+
+    if ( this.props.themeStore && th?.id === THEME_LIST.PROJECT_KAMP) {
+      avatarUrl = width && parseInt(width, 10) >= 100 ? this.props.themeStore?.currentTheme.badge : this.props.themeStore.currentTheme.avatar;
+    }
+
+
     return (
       <>
-        {showFallback && <Icon glyph={'account-circle'} size={50} />}
-        {!showFallback && avatarUrl && (
-          <Image
-            className="avatar"
-            width={width ? width : 40}
-            borderRadius={borderRadius ? borderRadius : 5}
-            src={avatarUrl}
-            onError={() => {
-              // if user image doesn't exist show fallback image instead
-              this.setState({ showFallback: true })
-            }}
-          />
-        )}
+        <Image
+          className="avatar"
+          width={width ? width : 40}
+          height={width ? width : 40}
+          sx={{ borderRadius: '25px' }}
+          src={avatarUrl}
+        />
       </>
     )
   }

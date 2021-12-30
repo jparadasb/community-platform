@@ -4,31 +4,36 @@ import { Form, Field } from 'react-final-form'
 import arrayMutators from 'final-form-arrays'
 import TEMPLATE from './Template'
 import { UploadedFile } from 'src/pages/common/UploadedFile/UploadedFile'
-import { InputField } from 'src/components/Form/Fields'
+import { InputField, DatePickerField } from 'src/components/Form/Fields'
 import { Button } from 'src/components/Button'
 import { EventStore } from 'src/stores/Events/events.store'
 import Heading from 'src/components/Heading'
+import Text from 'src/components/Text'
 import Flex from 'src/components/Flex'
 import { TagsSelectField } from 'src/components/Form/TagsSelect.field'
 import { inject } from 'mobx-react'
 import { PostingGuidelines } from './PostingGuidelines'
-import { IEvent, IEventFormInput } from 'src/models/events.models'
+import { IEventFormInput } from 'src/models/events.models'
 import { LocationSearchField } from 'src/components/Form/LocationSearch.field'
 import styled from 'styled-components'
 import theme from 'src/themes/styled.theme'
+import { validateUrl, addProtocolMutator, required } from 'src/utils/validators'
+import { Box } from 'rebass/styled-components'
+import ElWithBeforeIcon from 'src/components/ElWithBeforeIcon'
+import IconHeaderEvents from 'src/assets/images/header-section/events-header-icon.svg'
+import { logger } from 'src/logger'
 
 interface IState {
   formValues: IEventFormInput
   formSaved: boolean
   showSubmitModal?: boolean
+  selectedDate: any
+  isLocationSelected?: boolean
 }
-interface IProps extends RouteComponentProps<any> {}
+type IProps = RouteComponentProps<any>
 interface IInjectedProps extends IProps {
   eventStore: EventStore
 }
-
-// validation - return undefined if no error (i.e. valid)
-const required = (value: any) => (value ? undefined : 'Required')
 
 const FormContainer = styled.form`
   width: 100%;
@@ -48,6 +53,7 @@ export class EventsCreate extends React.Component<IProps, IState> {
     this.state = {
       formValues: { ...TEMPLATE.INITIAL_VALUES },
       formSaved: false,
+      selectedDate: null,
     }
   }
 
@@ -59,40 +65,67 @@ export class EventsCreate extends React.Component<IProps, IState> {
   }
 
   public onSubmit = async (formValues: IEventFormInput) => {
-    console.log('form values', formValues)
+    logger.debug('form values', formValues)
     await this.store.uploadEvent(formValues)
     this.props.history.push('/events')
   }
 
-  public validateTitle = async (value: any) => {
-    return this.store.validateTitle(value, 'v2_events')
-  }
-
-  public validateUrl = async (value: any) => {
-    return this.store.validateUrl(value)
+  public handleChange = (date: any) => {
+    this.setState({
+      selectedDate: date,
+    })
   }
 
   public render() {
-    const { formValues } = this.state
+    const { formValues, isLocationSelected } = this.state
     return (
       <Form
-        onSubmit={v => this.onSubmit(v as IEventFormInput)}
+        onSubmit={v => {
+          const datepickerDate = this.state.selectedDate
+          // convert from Date type to yyyy/mm/dd string and back into local timezone
+          const convert = new Date(
+            datepickerDate.getTime() -
+              datepickerDate.getTimezoneOffset() * 60000,
+          )
+            .toISOString()
+            .substring(0, 10)
+          v.date = convert
+          this.onSubmit(v as IEventFormInput)
+        }}
         initialValues={formValues}
         mutators={{
           ...arrayMutators,
+          addProtocolMutator,
         }}
         validateOnBlur
-        render={({ submitting, values, invalid, errors, handleSubmit }) => {
-          const disabled = invalid || submitting
+        render={({ form: { mutators }, submitting, handleSubmit }) => {
           return (
             <Flex mx={-2} bg={'inherit'} flexWrap="wrap">
               <Flex bg="inherit" px={2} width={[1, 1, 2 / 3]} mt={4}>
                 <FormContainer onSubmit={e => e.preventDefault()}>
                   {/* How To Info */}
                   <Flex flexDirection={'column'}>
-                    <Flex card mediumRadius bg={'softblue'} px={3} py={2}>
+                    <Flex
+                      card
+                      mediumRadius
+                      bg={theme.colors.softblue}
+                      px={3}
+                      py={2}
+                      alignItems="center"
+                    >
                       <Heading medium>Create an event</Heading>
+                      <Box ml="15px">
+                        <ElWithBeforeIcon
+                          IconUrl={IconHeaderEvents}
+                          height="20px"
+                        />
+                      </Box>
                     </Flex>
+                    <Box
+                      sx={{ mt: '20px', display: ['block', 'block', 'none'] }}
+                    >
+                      <PostingGuidelines />
+                    </Box>
                     <Flex
                       card
                       mediumRadius
@@ -111,10 +144,13 @@ export class EventsCreate extends React.Component<IProps, IState> {
                         <Field
                           id="title"
                           name="title"
-                          validate={value => this.validateTitle(value)}
+                          data-cy="title"
+                          validate={required}
                           validateFields={[]}
+                          modifiers={{ capitalize: true }}
                           component={InputField}
-                          placeholder="Title of your event"
+                          maxLength="140"
+                          placeholder="Title of your event (max 140 characters)"
                         />
                       </Flex>
                       <Flex
@@ -122,16 +158,26 @@ export class EventsCreate extends React.Component<IProps, IState> {
                         width={1}
                         flexDirection={['column', 'column', 'row']}
                       >
-                        <Flex flexDirection={'column'} mb={3} px={2} width={1}>
+                        <Flex
+                          flexDirection={'column'}
+                          mb={3}
+                          px={2}
+                          width={1}
+                          data-cy="date"
+                        >
                           <Label htmlFor="location">
                             When is your event taking place? *
                           </Label>
                           <Field
+                            className="datepicker"
+                            component={DatePickerField}
                             name="date"
-                            validateFields={[]}
-                            validate={required}
-                            component={InputField}
                             type="date"
+                            dateFormat="yyyy/MM/dd"
+                            validate={required}
+                            selected={this.state.selectedDate}
+                            customChange={date => this.handleChange(date)}
+                            placeholderText="yyyy/mm/dd"
                           />
                         </Flex>
                         <Flex flexDirection={'column'} mb={3} px={2} width={1}>
@@ -143,13 +189,20 @@ export class EventsCreate extends React.Component<IProps, IState> {
                             name="location"
                             className="location-search-create"
                             validateFields={[]}
-                            validate={(value: any) =>
-                              value.hasOwnProperty('latlng')
-                                ? undefined
-                                : 'Required'
-                            }
+                            validate={required}
+                            customChange={() => {
+                              this.setState({
+                                isLocationSelected: true,
+                              })
+                            }}
                             component={LocationSearchField}
                           />
+                          {isLocationSelected !== undefined &&
+                            !isLocationSelected && (
+                              <Text small color={theme.colors.red} mb="5px">
+                                Select a location for your event
+                              </Text>
+                            )}
                         </Flex>
                       </Flex>
                       <Flex
@@ -171,10 +224,14 @@ export class EventsCreate extends React.Component<IProps, IState> {
                           <Label htmlFor="location">Link to your event *</Label>
                           <Field
                             name="url"
+                            data-cy="url"
                             validateFields={[]}
-                            validate={value => this.validateUrl(value)}
+                            validate={value => validateUrl(value)}
                             component={InputField}
                             placeholder="URL to offsite link (Facebook, Meetup, etc)"
+                            customOnBlur={e =>
+                              mutators.addProtocolMutator(e.target.name)
+                            }
                           />
                         </Flex>
                       </Flex>
@@ -192,13 +249,23 @@ export class EventsCreate extends React.Component<IProps, IState> {
                 px={2}
                 mt={4}
               >
-                <PostingGuidelines />
+                <Box sx={{ display: ['none', 'none', 'block'] }}>
+                  <PostingGuidelines />
+                </Box>
                 <Button
-                  onClick={() => handleSubmit()}
+                  onClick={() => {
+                    if (isLocationSelected) {
+                      handleSubmit()
+                    } else {
+                      this.setState({ isLocationSelected: false })
+                    }
+                  }}
                   width={1}
                   mt={3}
-                  variant={disabled ? 'primary' : 'primary'}
-                  disabled={submitting || invalid}
+                  variant={'primary'}
+                  disabled={submitting}
+                  data-cy="submit"
+                  sx={{ mb: ['40px', '40px', 0] }}
                 >
                   Publish
                 </Button>

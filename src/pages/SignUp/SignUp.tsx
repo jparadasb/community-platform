@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { FRIENDLY_MESSAGES } from 'oa-shared'
 import Flex from 'src/components/Flex'
 import Heading from 'src/components/Heading'
 import styled from 'styled-components'
@@ -11,6 +12,9 @@ import { InputField } from 'src/components/Form/Fields'
 import { inject, observer } from 'mobx-react'
 import { UserStore } from 'src/stores/User/user.store'
 import { RouteComponentProps, withRouter } from 'react-router'
+import { string, object, ref, bool } from 'yup'
+import { required } from 'src/utils/validators'
+import { formatLowerNoSpecial } from 'src/utils/helpers'
 
 const Label = styled.label`
   font-size: ${theme.fontSizes[2] + 'px'};
@@ -22,7 +26,8 @@ interface IFormValues {
   email: string
   password: string
   passwordConfirmation: string
-  userName: string
+  displayName: string
+  consent: boolean
 }
 interface IState {
   formValues: IFormValues
@@ -35,9 +40,6 @@ interface IProps extends RouteComponentProps<any> {
   preloadValues?: any
 }
 
-// validation - return undefined if no error (i.e. valid)
-const required = (value: any) => (value ? undefined : 'Required')
-
 @inject('userStore')
 @observer
 class SignUpPage extends React.Component<IProps, IState> {
@@ -48,7 +50,8 @@ class SignUpPage extends React.Component<IProps, IState> {
         email: '',
         password: '',
         passwordConfirmation: '',
-        userName: '',
+        displayName: '',
+        consent: false,
       },
     }
   }
@@ -59,14 +62,19 @@ class SignUpPage extends React.Component<IProps, IState> {
   }
 
   async onSignupSubmit(v: IFormValues) {
-    const { email, password, userName } = v
+    const { email, password, displayName } = v
+    const userName = formatLowerNoSpecial(displayName as string)
     try {
       if (await this.checkUserNameUnique(userName)) {
-        await this.props.userStore!.registerNewUser(email, password, userName)
+        await this.props.userStore!.registerNewUser(
+          email,
+          password,
+          displayName,
+        )
         this.props.history.push('/sign-up-message')
       } else {
         this.setState({
-          errorMsg: 'That username is already taken',
+          errorMsg: FRIENDLY_MESSAGES['sign-up username taken'],
           disabled: false,
         })
       }
@@ -79,7 +87,37 @@ class SignUpPage extends React.Component<IProps, IState> {
     return (
       <Form
         onSubmit={v => this.onSignupSubmit(v as IFormValues)}
-        render={({ submitting, values, invalid, handleSubmit }) => {
+        validate={async (values: any) => {
+          const validationSchema = object({
+            displayName: string()
+              .min(2, 'Too short')
+              .required('Required'),
+            email: string()
+              .email('Invalid email')
+              .required('Required'),
+            password: string().required('Password is required'),
+            'confirm-password': string()
+              .oneOf(
+                [ref('password'), null],
+                'Your new password does not match',
+              )
+              .required('Password confirm is required'),
+            consent: bool().oneOf([true], 'Consent is required'),
+          })
+
+          try {
+            await validationSchema.validate(values, { abortEarly: false })
+          } catch (err) {
+            return err.inner.reduce(
+              (acc: any, error) => ({
+                ...acc,
+                [error.path]: error.message,
+              }),
+              {},
+            )
+          }
+        }}
+        render={({ submitting, invalid, handleSubmit }) => {
           const disabled = invalid || submitting
           return (
             <form onSubmit={handleSubmit}>
@@ -117,26 +155,28 @@ class SignUpPage extends React.Component<IProps, IState> {
                     flexWrap="wrap"
                     flexDirection="column"
                   >
-                    <Heading small arrowDown py={4} width={1}>
+                    <Heading small py={4} width={1}>
                       Create an account
                     </Heading>
                     <Flex flexDirection={'column'} mb={3} width={[1, 1, 2 / 3]}>
-                      <Label htmlFor="userName">
-                        Username, personal or workspace
+                      <Label htmlFor="displayName">
+                        Username. Think carefully. You can't change this*
                       </Label>
                       <Field
-                        name="userName"
+                        data-cy="username"
+                        name="displayName"
                         type="userName"
                         component={InputField}
-                        placeholder="Pick a unique username"
+                        placeholder="Pick a unique name"
                         validate={required}
                       />
                     </Flex>
                     <Flex flexDirection={'column'} mb={3} width={[1, 1, 2 / 3]}>
                       <Label htmlFor="email">
-                        Email, personal or workspace
+                        Email, personal or workspace*
                       </Label>
                       <Field
+                        data-cy="email"
                         name="email"
                         type="email"
                         component={InputField}
@@ -145,8 +185,9 @@ class SignUpPage extends React.Component<IProps, IState> {
                       />
                     </Flex>
                     <Flex flexDirection={'column'} mb={3} width={[1, 1, 2 / 3]}>
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">Password*</Label>
                       <Field
+                        data-cy="password"
                         name="password"
                         type="password"
                         component={InputField}
@@ -154,15 +195,39 @@ class SignUpPage extends React.Component<IProps, IState> {
                       />
                     </Flex>
                     <Flex flexDirection={'column'} mb={3} width={[1, 1, 2 / 3]}>
-                      <Label htmlFor="confirm-password">Confirm Password</Label>
+                      <Label htmlFor="confirm-password">
+                        Confirm Password*
+                      </Label>
                       <Field
+                        data-cy="confirm-password"
                         name="confirm-password"
                         type="password"
                         component={InputField}
                         validate={required}
                       />
                     </Flex>
-                    <Text color={'red'}>{this.state.errorMsg}</Text>
+                    <Flex mb={3} mt={2} width={[1, 1, 2 / 3]}>
+                      <Field
+                        data-cy="consent"
+                        name="consent"
+                        type="checkbox"
+                        component="input"
+                        validate={required}
+                      />
+                      <Label htmlFor="consent">
+                        I agree to the{' '}
+                        <a href="/terms" target="_blank" rel="nofollow">
+                          Terms of Service
+                        </a>
+                        <span> and </span>
+                        <a href="/privacy" target="_blank" rel="nofollow">
+                          Privacy Policy
+                        </a>
+                      </Label>
+                    </Flex>
+                    <Text color={'red'} data-cy="error-msg">
+                      {this.state.errorMsg}
+                    </Text>
                     <Flex mb={3} justifyContent={'space-between'}>
                       <Text small color={'grey'} mt={2}>
                         Already have an account ?
@@ -172,6 +237,7 @@ class SignUpPage extends React.Component<IProps, IState> {
 
                     <Flex>
                       <Button
+                        data-cy="submit"
                         width={1}
                         variant={'primary'}
                         disabled={disabled}

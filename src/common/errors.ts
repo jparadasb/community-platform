@@ -1,21 +1,16 @@
-import * as Sentry from '@sentry/browser'
+import * as Sentry from '@sentry/react'
 import { SENTRY_CONFIG } from '../config/config'
 
-export const log = {
-  message: Sentry.captureMessage,
-  event: Sentry.captureEvent,
-  exception: Sentry.captureException,
-}
-export const Level = Sentry.Severity
 export const initErrorHandler = () => {
+  const { location } = window
   if (
     location.search.indexOf('noSentry=true') !== -1 ||
     location.hostname === 'localhost'
   ) {
+    console.log('No error handler for this environment')
     return
   }
+
   // please check https://docs.sentry.io/error-reporting/configuration/?platform=javascript for options
-  Sentry.init({
-    dsn: SENTRY_CONFIG.dsn,
-  })
+  Sentry.init(SENTRY_CONFIG)
 }

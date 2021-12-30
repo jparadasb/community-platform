@@ -1,18 +1,20 @@
-// tslint:disable max-classes-per-file
-// tslint:disable variable-name
 import { DexieClient } from './clients/dexie'
 import { FirestoreClient } from './clients/firestore'
 import { RealtimeDBClient } from './clients/rtdb'
 import {
   AbstractDatabase,
   DBClients,
-  DBEndpoint,
   DBDoc,
   DBQueryWhereOperator,
   DBQueryWhereValue,
 } from './types'
-import { Observable, Observer } from 'rxjs'
 
+import { Observable, Observer } from 'rxjs'
+import { DBEndpoint, DB_ENDPOINTS } from './endpoints'
+
+/**
+ * Main Database class
+ */
 export class DatabaseV2 implements AbstractDatabase {
   private _clients: DBClients
   constructor(clients?: DBClients) {
@@ -25,20 +27,31 @@ export class DatabaseV2 implements AbstractDatabase {
    * @param endpoint - the name of the collection as found in the database
    */
   collection<T>(endpoint: DBEndpoint) {
-    return new CollectionReference<T>(endpoint, this._clients)
+    // use mapped endpoint to allow custom db endpoint prefixes
+    const mappedEndpoint = DB_ENDPOINTS[endpoint]
+    return new CollectionReference<T>(mappedEndpoint, this._clients)
   }
 
+  /**
+   * By default 3 databases are provided (cache, server, server-cache)
+   * Additionally, a 'no-idb' search param can be provided to disable
+   * cache-db entirely (triggered from dexie if not supported)
+   */
   private _getDefaultClients = (): DBClients => {
+    const serverDB = new FirestoreClient()
+    const cacheDB = window.location.search.includes('no-cache')
+      ? serverDB
+      : new DexieClient()
     return {
-      cacheDB: new DexieClient(),
-      serverDB: new FirestoreClient(),
+      cacheDB,
+      serverDB,
       serverCacheDB: new RealtimeDBClient(),
     }
   }
 }
 
 class CollectionReference<T> {
-  constructor(private endpoint: DBEndpoint, private clients: DBClients) {}
+  constructor(private endpoint: string, private clients: DBClients) {}
 
   /**
    * Provide a reference to a document to perform operations, such as getting or setting data
@@ -57,25 +70,24 @@ class CollectionReference<T> {
    * This is triggered with the full set of documents (existing + update)
    */
   stream(onUpdate: (value: (T & DBDoc)[]) => void) {
+    const totals: any = {}
     const { cacheDB, serverDB, serverCacheDB } = this.clients
     const endpoint = this.endpoint
     const observer: Observable<(T & DBDoc)[]> = Observable.create(
       async (obs: Observer<(T & DBDoc)[]>) => {
         // 1. Emit cached collection
         const cached = await cacheDB.getCollection<T>(endpoint)
-        console.log('cached', cached)
+        totals.cached = cached.length
         obs.next(cached)
         if (cached.length === 0) {
           // 2. If no cache, populate using large query db
-          console.log('getting server cache')
           const serverCache = await serverCacheDB.getCollection<T>(endpoint)
-          console.log('serverCache', serverCache)
+          totals.serverCache = serverCache.length
           await cacheDB.setBulkDocs(endpoint, serverCache)
           obs.next(serverCache)
         }
         // 3. get any newer docs from regular server db, merge with cache and emit
-        const latest = await this._getCacheLastModified()
-        console.log('subcribing to updates', latest)
+        const latest = await this._getCacheLastModified(endpoint)
         serverDB.streamCollection!(endpoint, {
           orderBy: '_modified',
           order: 'asc',
@@ -85,7 +97,29 @@ class CollectionReference<T> {
             value: latest,
           },
         }).subscribe(async updates => {
+          totals.live = updates.length
           await cacheDB.setBulkDocs(endpoint, updates)
+          const allDocs = await cacheDB.getCollection<T>(endpoint)
+          // console.group(`[${endpoint}] docs retrieved`)
+          // console.table(totals)
+          // console.groupEnd()
+          obs.next(allDocs)
+        })
+        // 4. Check for any document deletes, and remove as appropriate
+        // Assume archive will have been checked after last updated record sync
+        const lastArchive = latest
+        serverDB.streamCollection!(`_archived/${endpoint}/summary`, {
+          order: 'asc',
+          where: { field: '_archived', operator: '>', value: lastArchive },
+        }).subscribe(async docs => {
+          const archiveIds = docs.map(d => d._id)
+          for (const docId of archiveIds) {
+            try {
+              cacheDB.deleteDoc(endpoint, docId)
+            } catch (error) {
+              // might already be deleted so ignore error
+            }
+          }
           const allDocs = await cacheDB.getCollection<T>(endpoint)
           obs.next(allDocs)
         })
@@ -98,7 +132,7 @@ class CollectionReference<T> {
   /**
    * Set multiple docs in a collection in batch.
    * NOTE - to set an individual doc a reference to that doc should be generated instead
-   * i.e. `db.collection('v2_users').doc('myUsername').set(data)`
+   * i.e. `db.collection('users').doc('myUsername').set(data)`
    * @param docs - The collection of docs to set
    */
   async set(docs: any[]) {
@@ -123,28 +157,40 @@ class CollectionReference<T> {
     operator: DBQueryWhereOperator,
     value: DBQueryWhereValue,
   ) {
-    const { serverDB } = this.clients
-    const docs = await serverDB.queryCollection<T>(this.endpoint, {
+    const { serverDB, cacheDB } = this.clients
+    let docs = await serverDB.queryCollection<T>(this.endpoint, {
       where: { field, operator, value },
     })
+    // if not found on live try find on cached (might be offline)
+    // use catch as not all endpoints are cached or some might not be indexed
+    if (docs.length === 0) {
+      try {
+        docs = await cacheDB.queryCollection<T>(this.endpoint, {
+          where: { field, operator, value },
+        })
+      } catch (error) {
+        console.error(error)
+        // at least we can say we tried...
+      }
+    }
     return docs
   }
 
-  private async _getCacheLastModified() {
+  private async _getCacheLastModified(endpoint: string) {
     const { cacheDB } = this.clients
-    const latest = await cacheDB.queryCollection(this.endpoint, {
+    const latest = await cacheDB.queryCollection(endpoint, {
       orderBy: '_modified',
       order: 'desc',
       limit: 1,
     })
-    return latest.length > 0 ? latest[0]._modified : ''
+    return latest && latest.length > 0 ? latest[0]._modified : ''
   }
 }
 
 class DocReference<T> {
   public id: string
   constructor(
-    private endpoint: DBEndpoint,
+    private endpoint: string,
     docID: string = '_generate',
     private clients: DBClients,
   ) {
@@ -166,22 +212,30 @@ class DocReference<T> {
       const cachedDoc = await cacheDB.getDoc<T>(this.endpoint, this.id)
       return cachedDoc ? cachedDoc : this.get('server')
     } else {
-      // 2. get server docs, add to cache and return
+      // 2. get server docs and return
+      // Note - do not cache after retrieval as could interfere with collection get
+      // in case where doc retrieved before rest of collection get called
       const serverDoc = await serverDB.getDoc<T>(this.endpoint, this.id)
-      if (serverDoc) {
-        await cacheDB.setDoc(this.endpoint, serverDoc)
-      }
       return serverDoc
     }
   }
 
   /**
-   * NOT CURRENTLY IN USE
+   *  Stream live updates from a server (where supported)
+   *  Just returns the doc when not supported
    */
-  async stream() {
-    // TODO - if deemed useful by the platform
-    throw new Error('stream method does not currently exist for docs')
-    return
+  stream(): Observable<DBDoc> {
+    const { serverDB } = this.clients
+    if (serverDB.streamDoc) {
+      return serverDB.streamDoc<T>(`${this.endpoint}/${this.id}`)
+    } else {
+      return new Observable<DBDoc>(subscriber => {
+        this.get('server').then(res => {
+          subscriber.next(res)
+          subscriber.complete()
+        })
+      })
+    }
   }
 
   /**
@@ -191,7 +245,7 @@ class DocReference<T> {
    * If contains metadata fields (e.g. `_id`)
    * then this will be used instead of generated id
    */
-  async set(data: any) {
+  async set(data: T) {
     const { serverDB, cacheDB } = this.clients
     const dbDoc: DBDoc = this._setDocMeta(data)
     await serverDB.setDoc(this.endpoint, dbDoc)
@@ -199,13 +253,23 @@ class DocReference<T> {
   }
 
   /**
-   * Documents are artificially deleted by replacing all contents with basic metadata and
-   * `_deleted:true` property. This is so that other users can also sync the doc with their cache
-   * TODO - schedule server permanent delete and find more elegant solution to notify users
-   * to delete docs from their cache.
+   * Documents are artificially deleted by moving to an `_archived` collection, with separate entries
+   * for a metadata summary and the raw doc. This is required so that other users can sync deleted docs
+   * and delete from their own caches accordingly.
+   * TODO - add rules to restrict access to archive full docs, and schedule for permanent deletion
+   * TODO - let a user restore their own archived docs
    */
   async delete() {
-    return this.set({ _deleted: true })
+    const { serverDB, serverCacheDB } = this.clients
+    const doc = (await this.get()) as any
+    await serverDB.setDoc(`_archived/${this.endpoint}/summary`, {
+      _archived: new Date().toISOString(),
+      _id: this.id,
+      _createdBy: doc._createdBy || null,
+    })
+    await serverDB.setDoc(`_archived/${this.endpoint}/docs`, doc)
+    await serverDB.deleteDoc(this.endpoint, this.id)
+    await serverCacheDB.deleteDoc(this.endpoint, this.id)
   }
 
   batchDoc(data: any) {

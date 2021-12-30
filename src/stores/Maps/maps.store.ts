@@ -1,119 +1,164 @@
-import { observable, action, toJS } from 'mobx'
-import { insideBoundingBox, getBoundingBox, LatLng } from 'geolocation-utils'
-
+import { observable, action, makeObservable } from 'mobx'
 import {
   IMapPin,
-  IPinType,
+  IMapGrouping,
+  IMapPinWithDetail,
   IMapPinDetail,
   IBoundingBox,
-  EntityType,
-  IMapPinWithType,
 } from 'src/models/maps.models'
-import { generatePinFilters, generatePins } from 'src/mocks/maps.mock'
-import { IUserDB } from 'src/models/user.models'
 import { IDBEndpoint } from 'src/models/common.models'
 import { RootStore } from '..'
 import { Subscription } from 'rxjs'
 import { ModuleStore } from '../common/module.store'
 import { getUserAvatar } from '../User/user.store'
+import { MAP_GROUPINGS } from './maps.groupings'
+import { generatePins, generatePinDetails } from 'src/mocks/maps.mock'
+import { IUserPP } from 'src/models/user_pp.models'
+import { IUploadedFileMeta } from '../storage'
+import {
+  hasAdminRights,
+  needsModeration,
+  isAllowToPin,
+} from 'src/utils/helpers'
+import { logger } from 'src/logger'
 
+// NOTE - toggle below variable to use larger mock dataset
+const IS_MOCK = false
+const MOCK_PINS = generatePins(250)
+const COLLECTION_NAME: IDBEndpoint = 'mappins'
 export class MapsStore extends ModuleStore {
-  mapEndpoint: IDBEndpoint = 'v2_mappins'
-  availablePinFilters = generatePinFilters()
   mapPins$: Subscription
+  // eslint-disable-next-line
   constructor(rootStore: RootStore) {
     super(rootStore)
-  }
-  @observable
-  public mapBoundingBox: IBoundingBox = {
-    topLeft: { lat: -90, lng: -180 },
-    bottomRight: { lat: 90, lng: 180 },
+    makeObservable(this)
   }
 
   @observable
-  public activePinFilters: Array<IPinType> = []
+  public activePinFilters: Array<IMapGrouping> = []
 
   @observable
-  public mapPins: Array<IMapPinWithType> = []
+  public activePin: IMapPin | IMapPinWithDetail | undefined = undefined
+
+  @observable
+  private mapPins: Array<IMapPin> = []
+
+  @observable
+  public filteredPins: Array<IMapPin> = []
 
   @action
   private processDBMapPins(pins: IMapPin[]) {
-    if (pins.length === 0 || this.availablePinFilters.length === 0) {
+    if (pins.length === 0) {
       this.mapPins = []
       return
     }
-
-    const filterMap = this.availablePinFilters.reduce(
-      (accumulator, current) => {
-        accumulator[current.name] = current
-        return accumulator
-      },
-      {} as Record<string, IPinType>,
-    )
-
-    this.mapPins = pins.map(({ _id, location, pinType }) => ({
-      _id,
-      location,
-      pinType: filterMap[pinType],
-    }))
+    // HACK - CC - 2019/11/04 changed pins api, so any old mappins will break
+    // this filters out. In future should run an upgrade script (easier once deployed)
+    // HACK - ARH - 2019/12/09 filter unaccepted pins, should be done serverside
+    const activeUser = this.activeUser
+    const isAdmin = hasAdminRights(activeUser)
+    pins = pins.filter(p => {
+      const isPinAccepted = p.moderation === 'accepted'
+      const wasCreatedByUser = activeUser && p._id === activeUser.userName
+      const isAdminAndAccepted = isAdmin && p.moderation !== 'rejected'
+      return (
+        p.type &&
+        p.type !== 'member' &&
+        (isPinAccepted || wasCreatedByUser || isAdminAndAccepted)
+      )
+    })
+    if (IS_MOCK) {
+      pins = MOCK_PINS
+    }
+    this.mapPins = pins
+    this.filteredPins = this.mapPins
   }
 
-  // Caching pinDetails in a map to reduce database calls. We don't want to cache
-  //  this using firebase since this data could change over time
-  private pinDetailCache: Map<string, IMapPinDetail> = new Map()
-  @observable
-  public pinDetail: IMapPinDetail | undefined = undefined
-
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  /** TODO CC 2021-05-28 review if still useful to keep */
   @action
   public setMapBoundingBox(boundingBox: IBoundingBox) {
-    this.mapBoundingBox = boundingBox
-    this.recalculatePinCounts()
+    // this.recalculatePinCounts(boundingBox)
   }
-
   @action
   public async retrieveMapPins() {
     // TODO: make the function accept a bounding box to reduce load from DB
-    // TODO: stream will force repeated recalculation of all pins on any update,
-    // really inefficient, should either remove stream or find way just to process new
-    this.mapPins$ = this.db.collection<IMapPin>('v2_mappins').stream(pins => {
-      this.processDBMapPins(pins)
-    })
+    /*
+       TODO: unaccepted pins should be filtered in DB, before reaching the client
+             It would need to modifiy:
+              - stream in stores/databaseV2/clients/firestore.tsx
+              - streamCollection in stores/databaseV2/clients/firestore.tsx
+             to support where clause.
+    */
+    this.mapPins$ = this.db
+      .collection<IMapPin>(COLLECTION_NAME)
+      .stream(pins => {
+        // TODO - make more efficient by tracking only new pins received and updating
+        if (pins.length !== this.mapPins.length) {
+          this.processDBMapPins(pins)
+        }
+      })
   }
 
   @action
   public async retrievePinFilters() {
     // TODO: get from database
-    this.availablePinFilters = await generatePinFilters()
-    this.activePinFilters = this.availablePinFilters.map(filter => filter)
+    this.activePinFilters = MAP_GROUPINGS
   }
 
   @action
-  public async setActivePinFilters(
-    grouping: EntityType,
-    filters: Array<IPinType>,
-  ) {
-    const newFilters = this.activePinFilters.filter(
-      filter => filter.grouping !== grouping,
-    )
-    this.activePinFilters = newFilters.concat(filters)
-  }
-
-  @action
-  public async getPinDetails(pin: IMapPin): Promise<IMapPinDetail> {
-    if (!this.pinDetailCache.has(pin._id)) {
-      // get from db if not already in cache. note map ids match with user ids
-      const pinDetail = await this.getUserProfilePin(pin._id)
-      this.pinDetailCache.set(pin._id, { ...pin, ...pinDetail })
-      return this.getPinDetails(pin)
+  public async setActivePinFilters(filters: Array<string>) {
+    if (filters.length === 0) {
+      this.filteredPins = this.mapPins
+      return
     }
-    this.pinDetail = this.pinDetailCache.get(pin._id)
-    return toJS(this.pinDetail as IMapPinDetail)
+
+    const mapPins = this.filterMapPinsByType(filters)
+    this.filteredPins = mapPins
+  }
+
+  private filterMapPinsByType(filters: Array<string>) {
+    // filter pins to include matched pin type or subtype
+    const filteredMapPins = this.mapPins.filter(pin => {
+      return pin.subType
+        ? filters.includes(pin.subType)
+        : filters.includes(pin.type)
+    })
+    return filteredMapPins
+  }
+
+  /**
+   * Set the location and id of current active pin, and automatically
+   * generate full pin details from database
+   * @param pin - map pin meta containing location and id for detail lookup
+   * set undefined to remove any active popup
+   */
+  @action
+  public async setActivePin(pin?: IMapPin | IMapPinWithDetail) {
+    // HACK - CC - 2021-07-14 ignore hardcoded pin details, should be retrieved
+    // from profile on open instead (needs cleaning from DB)
+    if (pin && pin.hasOwnProperty('detail')) {
+      delete pin['detail']
+    }
+    this.activePin = pin
+    if (pin) {
+      const pinWithDetail = await this.getPinDetail(pin)
+      this.activePin = pinWithDetail
+    }
+  }
+  // call additional action when pin detail received to inform mobx correctly of update
+  private async getPinDetail(pin: IMapPin) {
+    const detail: IMapPinDetail = IS_MOCK
+      ? generatePinDetails()
+      : await this.getUserProfilePin(pin._id)
+    const pinWithDetail: IMapPinWithDetail = { ...pin, detail }
+    return pinWithDetail
   }
 
   // get base pin geo information
   public async getPin(id: string) {
     const pin = await this.db
-      .collection<IMapPin>('v2_mappins')
+      .collection<IMapPin>(COLLECTION_NAME)
       .doc(id)
       .get()
     return pin as IMapPin
@@ -122,56 +167,115 @@ export class MapsStore extends ModuleStore {
   // add new pin or update existing
   public async setPin(pin: IMapPin) {
     // generate standard doc meta
-    console.log('setting pin', pin)
+    if (!isAllowToPin(pin, this.activeUser)) {
+      return false
+    }
     return this.db
-      .collection('v2_mappins')
+      .collection(COLLECTION_NAME)
+      .doc(pin._id)
+      .set(pin)
+  }
+
+  // Moderate Pin
+  public async moderatePin(pin: IMapPin) {
+    if (!hasAdminRights(this.activeUser)) {
+      return false
+    }
+    await this.setPin(pin)
+    this.setActivePin(pin)
+  }
+  public needsModeration(pin: IMapPin) {
+    return needsModeration(pin, this.activeUser)
+  }
+  public canSeePin(pin: IMapPin) {
+    return pin.moderation === 'accepted' || isAllowToPin(pin, this.activeUser)
+  }
+
+  public async setUserPin(user: IUserPP) {
+    const pin: IMapPin = {
+      _id: user.userName,
+      location: user.location!.latlng,
+      type: user.profileType ? user.profileType : 'member',
+      moderation: 'awaiting-moderation', // NOTE - if pin previously accespted this will be updated on backend function
+    }
+    if (user.workspaceType) {
+      pin.subType = user.workspaceType
+    }
+    logger.debug('setting user pin', pin)
+    await this.db
+      .collection<IMapPin>(COLLECTION_NAME)
       .doc(pin._id)
       .set(pin)
   }
 
   public removeSubscriptions() {
-    this.mapPins$.unsubscribe()
-  }
-
-  private recalculatePinCounts() {
-    const boundingBox = getBoundingBox(
-      [
-        this.mapBoundingBox.topLeft as LatLng,
-        this.mapBoundingBox.bottomRight as LatLng,
-      ],
-      0,
-    )
-
-    const pinTypeMap = this.availablePinFilters.reduce(
-      (accumulator, current) => {
-        current.count = 0
-        if (accumulator[current.name] === undefined) {
-          accumulator[current.name] = current
-        }
-        return accumulator
-      },
-      {} as Record<string, IPinType>,
-    )
-
-    this.mapPins.forEach(pin => {
-      if (insideBoundingBox(pin.location as LatLng, boundingBox)) {
-        pinTypeMap[pin.pinType.name].count++
-      }
-    })
+    if (this.mapPins$) {
+      this.mapPins$.unsubscribe()
+    }
   }
 
   // return subset of profile info used when displaying map pins
-  private async getUserProfilePin(username: string) {
-    const u = (await this.activeUser) as IUserDB
-    console.log('user profile retrieved', u)
-    const avatar = getUserAvatar(u.userName)
+  private async getUserProfilePin(username: string): Promise<IMapPinDetail> {
+    const u = await this.userStore.getUserProfile(username)
+    if (!u) {
+      return {
+        heroImageUrl: '',
+        lastActive: '',
+        profilePicUrl: '',
+        shortDescription: '',
+        name: username,
+        displayName: username,
+        profileUrl: `${window.location.origin}/u/${username}`,
+        verifiedBadge: false,
+      }
+    }
+    const avatar = getUserAvatar(username)
+    let heroImageUrl = ''
+    if (u.coverImages && u.coverImages.length > 0) {
+      heroImageUrl = (u.coverImages[0] as IUploadedFileMeta).downloadUrl
+    }
+
     return {
-      heroImageUrl: avatar,
+      heroImageUrl,
       lastActive: u._lastActive ? u._lastActive : u._modified,
       profilePicUrl: avatar,
-      shortDescription: u.about ? u.about : '',
+      shortDescription: u.mapPinDescription ? u.mapPinDescription : '',
       name: u.userName,
-      profileUrl: `${location.origin}/u/${u.userName}`,
+      displayName: u.displayName,
+      profileUrl: `${window.location.origin}/u/${u.userName}`,
+      verifiedBadge: u.badges?.verified || false,
     }
   }
+  @action
+  public getPinsNumberByFilterType(filter: Array<string>) {
+    const pinsNumber = this.filterMapPinsByType(filter)
+    return pinsNumber.length
+  }
 }
+
+/**********************************************************************************
+ *  Deprecated - CC - 2019/11/04
+ *
+ * The code below was previously used to help calculate the number of pins currently
+ * within view, however not fully implemented. It is retained in case this behaviour
+ * is wanted in the future
+ *********************************************************************************/
+
+// private recalculatePinCounts(boundingBox: BoundingBox) {
+//   const pinTypeMap = this.availablePinFilters.reduce(
+//     (accumulator, current) => {
+//       current.count = 0
+//       if (accumulator[current.type] === undefined) {
+//         accumulator[current.type] = current
+//       }
+//       return accumulator
+//     },
+//     {} as Record<string, IPinType>,
+//   )
+
+//   this.mapPins.forEach(pin => {
+//     if (insideBoundingBox(pin.location as LatLng, boundingBox)) {
+//       pinTypeMap[pin.type].count++
+//     }
+//   })
+// }

@@ -1,9 +1,10 @@
-import * as React from 'react'
 import styled from 'styled-components'
-import theme from 'src/themes/styled.theme'
-import { Flex as RebassFlex, FlexProps as RebassFlexProps } from 'rebass'
+import {
+  Flex as RebassFlex,
+  FlexProps as RebassFlexProps,
+} from 'rebass/styled-components'
 
-export interface IFlexProps {
+export interface IFlexProps extends RebassFlexProps {
   border?: boolean
   littleRadius?: boolean
   mediumRadius?: boolean
@@ -13,6 +14,8 @@ export interface IFlexProps {
   littleScale?: boolean
   mediumScale?: boolean
 }
+
+type FlexProps = IFlexProps & RebassFlexProps
 
 export const card = (props: IFlexProps) =>
   props.card ? { border: '2px solid black' } : null
@@ -46,7 +49,7 @@ export const mediumScale = (props: IFlexProps) =>
       }
     : null
 
-export const BaseFlex = styled(RebassFlex)`
+export const BaseFlex = styled(RebassFlex as any)`
   ${littleRadius}
   ${mediumRadius}
   ${largeRadius}
@@ -55,11 +58,9 @@ export const BaseFlex = styled(RebassFlex)`
   ${mediumScale}
 `
 
-type FlexProps = IFlexProps & RebassFlexProps
-
 // TODO - incorporate custom css into rebass props to allow things like below to be passed
 export const Flex = (props: FlexProps) => (
-  <BaseFlex {...props}>{props.children}</BaseFlex>
+  <BaseFlex {...(props as any)}>{props.children}</BaseFlex>
 )
 
 export default Flex

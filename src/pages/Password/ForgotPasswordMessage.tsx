@@ -1,15 +1,11 @@
-import * as React from 'react'
+import React from 'react'
 import Flex from 'src/components/Flex'
 import Heading from 'src/components/Heading'
-import styled from 'styled-components'
-import theme from 'src/themes/styled.theme'
 import { Button } from 'src/components/Button'
 import Text from 'src/components/Text'
 import { Link } from 'src/components/Links'
-import { Form, Field } from 'react-final-form'
-import { InputField } from 'src/components/Form/Fields'
 
-export class ForgotPasswordMessagePage extends React.Component {
+class ForgotPasswordMessagePage extends React.Component {
   public render() {
     return (
       <Flex
@@ -39,7 +35,7 @@ export class ForgotPasswordMessagePage extends React.Component {
             flexWrap="wrap"
             flexDirection="column"
           >
-            <Heading small arrowDown py={4} width={1}>
+            <Heading small py={4} width={1}>
               Check your email
             </Heading>
             <Flex flexDirection={'column'} mb={3}>
@@ -55,12 +51,11 @@ export class ForgotPasswordMessagePage extends React.Component {
             </Flex>
           </Flex>
           <Flex mt={3} justifyContent={'flex-end'}>
-            <Button variant="tertiary" small>
-              Close
-            </Button>
+            <Button variant="tertiary">Close</Button>
           </Flex>
         </Flex>
       </Flex>
     )
   }
 }
+export default ForgotPasswordMessagePage

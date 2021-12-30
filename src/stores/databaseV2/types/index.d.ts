@@ -1,4 +1,3 @@
-// tslint:disable interface-name max-classes-per-file
 /**
  * The summary section should be brief. On a documentation web site,
  * it will be shown on a page that lists summaries for many different
@@ -57,23 +56,27 @@ export interface DBClients {
 }
 
 export abstract class AbstractDBClient {
-  getDoc<T>(endpoint: DBEndpoint, docId: string): Promise<T & DBDoc | undefined>
+  getDoc<T>(endpoint: string, docId: string): Promise<(T & DBDoc) | undefined>
 
-  setDoc(endpoint: DBEndpoint, doc: any): Promise<void>
+  setDoc(endpoint: string, doc: any): Promise<void>
 
-  setBulkDocs(endpoint: DBEndpoint, docs: any): Promise<void>
+  setBulkDocs(endpoint: string, docs: any): Promise<void>
 
-  getCollection<T>(endpoint: DBEndpoint): Promise<(T & DBDoc)[]>
+  getCollection<T>(endpoint: string): Promise<(T & DBDoc)[]>
 
   queryCollection<T>(
-    endpoint: DBEndpoint,
+    endpoint: string,
     queryOpts: DBQueryOptions,
   ): Promise<(T & DBDoc)[]>
 
   streamCollection?<T>(
-    endpoint: DBEndpoint,
+    endpoint: string,
     queryOpts?: DBQueryOptions,
   ): Observable<(T & DBDoc)[]>
+
+  streamDoc?<T>(endpoint: string): Observable<T & DBDoc>
+
+  deleteDoc(endpoint: string, docId: string): Promise<void>
 }
 
 /**
@@ -99,7 +102,7 @@ export interface DBQueryWhereOptions {
   operator: DBQueryWhereOperator
   value: DBQueryWhereValue
 }
-export type DBQueryWhereOperator = '>' | '<' | '=='
+export type DBQueryWhereOperator = '>' | '<' | '==' | 'array-contains'
 export type DBQueryWhereValue = string | number
 
 /**
@@ -109,18 +112,3 @@ export type DBQueryWhereValue = string | number
  * This is more consistent than others and allows better querying
  */
 export type ISODateString = string
-
-/**
- * The `DBEndpoint` if the base path from which documents are retrieved
- * This is the equivalent of a database Table name or Collection path
- * @remarks
- * These endpoints have to be explicity defined to enable proper
- * indexing within the offline cache db
- */
-
-export type DBEndpoint =
-  | 'v2_howtos'
-  | 'v2_users'
-  | 'v2_tags'
-  | 'v2_events'
-  | 'v2_mappins'

@@ -1,12 +1,14 @@
-import React from 'react'
+import { PureComponent } from 'react'
 import Linkify from 'react-linkify'
-import { IHowtoStep } from 'src/models/howto.models'
-import { Box } from 'rebass'
+import ReactPlayer from 'react-player'
+import { Box } from 'rebass/styled-components'
 import Flex from 'src/components/Flex'
 import Heading from 'src/components/Heading'
+import ImageGallery from 'src/components/ImageGallery'
 import Text from 'src/components/Text'
+import { IHowtoStep } from 'src/models/howto.models'
 import { IUploadedFileMeta } from 'src/stores/storage'
-import ImageGallery from './ImageGallery'
+import { capitalizeFirstLetter } from 'src/utils/helpers'
 import styled from 'styled-components'
 
 interface IProps {
@@ -18,11 +20,13 @@ const FlexStepNumber = styled(Flex)`
   height: fit-content;
 `
 
-export default class Step extends React.PureComponent<IProps> {
+export default class Step extends PureComponent<IProps> {
   render() {
+    const { stepindex, step } = this.props
     return (
       <>
         <Flex
+          data-cy={`step_${stepindex}`}
           mx={[0, 0, -2]}
           mt={9}
           flexDirection={['column', 'column', 'row']}
@@ -32,13 +36,13 @@ export default class Step extends React.PureComponent<IProps> {
               card
               mediumRadius
               justifyContent={'center'}
-              py={4}
+              py={3}
               px={4}
               bg={'white'}
               width={1}
             >
               <Heading medium mb={0}>
-                {this.props.stepindex + 1}
+                {stepindex + 1}
               </Heading>
             </FlexStepNumber>
           </Flex>
@@ -50,23 +54,34 @@ export default class Step extends React.PureComponent<IProps> {
             flex={9}
             width={1}
             flexDirection={['column', 'column', 'row']}
+            overflow={'hidden'}
           >
             <Flex width={[1, 1, 4 / 9]} py={4} px={4} flexDirection={'column'}>
               <Heading medium mb={0}>
-                {this.props.step.title}
+                {/* HACK 2021-07-16 - new howtos auto capitalize title but not older */}
+                {capitalizeFirstLetter(step.title)}
               </Heading>
               <Box>
-                <Text preLine mt={3} color={'grey'}>
-                  <Linkify>{this.props.step.text}</Linkify>
+                <Text preLine paragraph mt={3} color={'grey'}>
+                  <Linkify>
+                    {/* HACK 2021-07-16 - new howtos auto capitalize title but not older */}
+                    {capitalizeFirstLetter(step.text)}
+                  </Linkify>
                 </Text>
               </Box>
             </Flex>
-            <Flex width={[1, 1, 5 / 9]}>
-              <ImageGallery
-                images={this.props.step.images as IUploadedFileMeta[]}
-                caption={this.props.step.caption}
-              />
-            </Flex>
+            <Box width={[1, 1, 5 / 9]}>
+              {step.videoUrl ? (
+                <ReactPlayer
+                  width="auto"
+                  data-cy="video-embed"
+                  controls
+                  url={step.videoUrl}
+                />
+              ) : (
+                <ImageGallery images={step.images as IUploadedFileMeta[]} />
+              )}
+            </Box>
           </Flex>
         </Flex>
       </>

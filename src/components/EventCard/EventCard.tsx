@@ -1,34 +1,17 @@
-import React from 'react'
-import { Link as ExternalLink, Button } from 'rebass'
 import Flex from 'src/components/Flex'
+import ModerationStatusText from 'src/components/ModerationStatusText'
 import Text from 'src/components/Text'
-import styled from 'styled-components'
+import { Button } from 'src/components/Button'
 import TagDisplay from 'src/components/Tags/TagDisplay/TagDisplay'
 import FlagIconEvents from 'src/components/Icons/FlagIcon/FlagIcon'
-import ImageTargetBlank from 'src/assets/icons/link-target-blank.svg'
 import { IEvent } from '../../models/events.models'
-import { getMonth, getDay } from 'src/utils/helpers'
-import Heading from 'src/components/Heading'
-
-const GoToEventLink = styled(ExternalLink)`
-  padding-right: 30px;
-  position: relative;
-  &:after {
-    content: '';
-    background-image: url(${ImageTargetBlank});
-    width: 20px;
-    height: 20px;
-    z-index: 0;
-    background-size: contain;
-    background-repeat: no-repeat;
-    position: absolute;
-    top: -5px;
-    right: 0px;
-  }
-`
+import { getMonth, getDay, capitalizeFirstLetter } from 'src/utils/helpers'
+import { LinkTargetBlank } from '../Links/LinkTargetBlank/LinkTargetBlank'
 
 interface IProps {
   event: IEvent
+  needsModeration: boolean
+  moderateEvent: (event: IEvent, accepted: boolean) => void
 }
 
 export const EventCard = (props: IProps) => (
@@ -43,7 +26,18 @@ export const EventCard = (props: IProps) => (
     flex={1}
     key={props.event.slug}
     flexDirection={['column', 'column', 'initial']}
+    sx={{ position: 'relative' }}
+    data-cy="card"
+    data-eventid={props.event._id}
   >
+    {props.event.moderation !== 'accepted' && (
+      <ModerationStatusText
+        moderatedContent={props.event}
+        contentType="event"
+        top={'0px'}
+      />
+    )}
+
     <Flex flexWrap={'wrap'} flex={'1'} mb={[1, 1, 0]} order={[1, 1, 1]}>
       <Flex
         alignItems={['center', 'center', 'center']}
@@ -69,7 +63,7 @@ export const EventCard = (props: IProps) => (
           textAlign={'center'}
           width={['auto', 'auto', 1]}
         >
-          {getMonth(new Date(props.event.date))}
+          {getMonth(new Date(props.event.date), 'short')}
         </Text>
       </Flex>
     </Flex>
@@ -82,7 +76,7 @@ export const EventCard = (props: IProps) => (
     >
       <Flex alignItems={'center'} width={1}>
         <Text bold color="black" fontSize={[3, 3, 4]}>
-          {props.event.title}
+          {capitalizeFirstLetter(props.event.title)}
         </Text>
       </Flex>
       <Text auxiliary width={1}>
@@ -105,9 +99,10 @@ export const EventCard = (props: IProps) => (
       </Text>
     </Flex>
     <Flex
-      flexWrap={'nowrap'}
-      alignItems={'center'}
-      flex={'1'}
+      flex="1"
+      alignItems="flex-start"
+      justifyContent="center"
+      flexDirection="column"
       order={[4, 4, 4]}
       mb={[2, 2, 0]}
     >
@@ -116,23 +111,44 @@ export const EventCard = (props: IProps) => (
           return <TagDisplay key={tag} tagKey={tag} />
         })}
     </Flex>
+    {props.needsModeration && (
+      <Flex
+        flexWrap={'nowrap'}
+        flexDirection={'row'}
+        alignItems={'center'}
+        ml={2}
+        order={[5, 5, 5]}
+      >
+        <Button
+          small
+          data-cy={'accept'}
+          variant={'primary'}
+          icon="check"
+          mr={1}
+          sx={{ height: '30px' }}
+          onClick={() => props.moderateEvent(props.event, true)}
+        />
+        <Button
+          small
+          data-cy="reject-pin"
+          variant={'tertiary'}
+          icon="delete"
+          sx={{ height: '30px' }}
+          onClick={() => props.moderateEvent(props.event, false)}
+        />
+      </Flex>
+    )}
     <Flex
       flexWrap={'nowrap'}
       alignItems={'center'}
       flex={'1'}
       order={[5, 5, 5]}
     >
-      <GoToEventLink
-        target="_blank"
-        href={props.event.url}
-        color={'black'}
-        mr={1}
-        width={1}
-      >
-        <Text auxiliary width={1}>
+      <LinkTargetBlank href={props.event.url} color={'black'} mr={1} width={1}>
+        <Text auxiliary width={1} txtRight>
           Go to event
         </Text>
-      </GoToEventLink>
+      </LinkTargetBlank>
     </Flex>
   </Flex>
 )

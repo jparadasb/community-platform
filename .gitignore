@@ -1,16 +1,21 @@
 # See https://help.github.com/ignore-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules
 
 # testing
 /coverage
 
+functions/service.json
+functions/backup.json
+
 # production
 /build
+/lib
 
 # misc
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
@@ -21,8 +26,21 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .vscode
+.firebase/
+*.log
 
 # IntelliJ
 /.idea
 functions/firebase-debug.log
 .env-*
+
+# https://yarnpkg.com/getting-started/qa#which-files-should-be-gitignored
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
+*.tsbuildinfo

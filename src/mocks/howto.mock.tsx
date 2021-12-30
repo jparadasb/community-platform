@@ -36,6 +36,8 @@ export const HOWTO_MOCK: IHowto[] = [
     files: [],
     ...MOCK_DB_META('howTo1'),
     _createdBy: 'ExampleUser',
+    moderation: 'draft',
+    creatorCountry: 'nl',
   },
   {
     cover_image: exampleUploadImage,
@@ -60,6 +62,8 @@ export const HOWTO_MOCK: IHowto[] = [
     files: [],
     ...MOCK_DB_META('howTo2'),
     _createdBy: 'ExampleUser',
+    moderation: 'awaiting-moderation',
+    creatorCountry: 'fr',
   },
   {
     cover_image: exampleUploadImage,
@@ -84,5 +88,7 @@ export const HOWTO_MOCK: IHowto[] = [
     files: [],
     ...MOCK_DB_META('howTo3'),
     _createdBy: 'ExampleUser',
+    moderation: 'accepted',
+    creatorCountry: 'es',
   },
 ]

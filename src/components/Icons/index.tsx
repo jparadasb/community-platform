@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import { Component } from 'react'
 import styled from 'styled-components'
 import {
   verticalAlign,
@@ -12,6 +12,8 @@ import {
   MdAdd,
   MdCheck,
   MdArrowBack,
+  MdArrowDownward,
+  MdArrowUpward,
   MdKeyboardArrowDown,
   MdMailOutline,
   MdNotifications,
@@ -28,6 +30,8 @@ import {
   MdArrowForward,
   MdLocationOn,
   MdMail,
+  MdChevronLeft,
+  MdChevronRight,
 } from 'react-icons/md'
 import {
   GoCloudUpload,
@@ -35,15 +39,10 @@ import {
   GoTrashcan,
   GoLinkExternal,
 } from 'react-icons/go'
-import {
-  FaSignal,
-  FaFacebookF,
-  FaSlack,
-  FaInstagram,
-  FaDiscord,
-} from 'react-icons/fa'
+import { FaSignal, FaFacebookF, FaSlack, FaInstagram } from 'react-icons/fa'
 import { IconContext } from 'react-icons'
 import SVGs from './svgs'
+import { DownloadIcon } from './DownloadIcon'
 
 interface IGlyphProps {
   glyph: string
@@ -51,17 +50,20 @@ interface IGlyphProps {
 
 interface IProps {
   glyph: keyof IGlyphs
-  size?: number | string
+  size?: any
   marginRight?: string
   color?: string
-  OnClick?: () => void
+  onClick?: () => void
 }
 export type availableGlyphs =
   | 'download'
+  | 'download-cloud'
   | 'upload'
   | 'add'
   | 'check'
   | 'arrow-back'
+  | 'arrow-full-down'
+  | 'arrow-full-up'
   | 'arrow-forward'
   | 'arrow-down'
   | 'mail-outline'
@@ -85,18 +87,24 @@ export type availableGlyphs =
   | 'facebook'
   | 'instagram'
   | 'slack'
-  | 'discord'
   | 'email'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'star'
+  | 'star-active'
 
 export type IGlyphs = { [k in availableGlyphs]: JSX.Element }
 
 export const glyphs: IGlyphs = {
   download: <MdFileDownload />,
+  'download-cloud': <DownloadIcon />,
   upload: <GoCloudUpload />,
   add: <MdAdd />,
   check: <MdCheck />,
   'arrow-back': <MdArrowBack />,
   'arrow-forward': <MdArrowForward />,
+  'arrow-full-down': <MdArrowDownward />,
+  'arrow-full-up': <MdArrowUpward />,
   'arrow-down': <MdKeyboardArrowDown />,
   'mail-outline': <MdMailOutline />,
   notifications: <MdNotifications />,
@@ -119,13 +127,16 @@ export const glyphs: IGlyphs = {
   facebook: <FaFacebookF />,
   instagram: <FaInstagram />,
   slack: <FaSlack />,
-  discord: <FaDiscord />,
   email: <MdMail />,
+  'chevron-left': <MdChevronLeft />,
+  'chevron-right': <MdChevronRight />,
+  star: SVGs.star,
+  'star-active': SVGs.starActive,
 }
 
 type WrapperProps = IProps & VerticalAlignProps & SpaceProps
 
-const IconWrapper = styled<WrapperProps, 'div'>('div')`
+const IconWrapper = styled.div<WrapperProps>`
   display: inline-block;
   flex: 0 0 ${props => (props.size ? `${props.size}px` : '32px')};
   width: ${props => (props.size ? `${props.size}px` : '32px')};
@@ -136,6 +147,12 @@ const IconWrapper = styled<WrapperProps, 'div'>('div')`
   color: ${props => (props.color ? `${props.color}` : 'inherit')};
   ${verticalAlign}
   ${space}
+
+  ${props =>
+    props.onClick &&
+    `
+    cursor: pointer;
+  `}
 `
 
 const Glyph = ({ glyph = '' }: IGlyphProps) => {
@@ -143,11 +160,25 @@ const Glyph = ({ glyph = '' }: IGlyphProps) => {
 }
 
 export class Icon extends Component<WrapperProps> {
+  // eslint-disable-next-line
   constructor(props: WrapperProps) {
     super(props)
   }
   public render() {
-    const { size = 16, glyph } = this.props
+    const { glyph } = this.props
+
+    const sizeMap = {
+      xs: 8,
+      sm: 16,
+      md: 32,
+      lg: 48,
+      xl: 64,
+    }
+
+    let { size } = this.props
+    const isSizeNumeric = size - parseFloat(size) + 1 >= 0
+    size = isSizeNumeric ? size : sizeMap[size]
+    size = size || 16
 
     return (
       <IconWrapper

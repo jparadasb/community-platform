@@ -1,16 +1,26 @@
-import countries from 'react-flags-select/lib/countries.js'
-import { IHowto } from 'src/models/howto.models'
+import { isObservableObject, toJS } from 'mobx'
+import { DBDoc, IModerable } from 'src/models/common.models'
+import { IMapPin } from 'src/models/maps.models'
 import { IUser } from 'src/models/user.models'
-import { DBDoc } from 'src/models/common.models'
 
 // remove special characters from string, also replacing spaces with dashes
-export const stripSpecialCharacters = (text?: string) => {
+export const stripSpecialCharacters = (text: string) => {
   return text
     ? text
-        .replace(/[`~!@#$%^&*()_|+\-=÷¿?;:'",.<>\{\}\[\]\\\/]/gi, '')
         .split(' ')
         .join('-')
+        .replace(/[^a-zA-Z0-9_-]/gi, '')
     : ''
+}
+
+// convert to lower case and remove any special characters
+export const formatLowerNoSpecial = (text: string) => {
+  return stripSpecialCharacters(text).toLowerCase()
+}
+
+// remove dashes with spaces
+export const replaceDashesWithSpaces = (str: string) => {
+  return str ? str.replace(/-/g, ' ') : ''
 }
 
 // take an array of objects and convert to an single object, using a unique key
@@ -27,6 +37,41 @@ export const arrayToJson = (arr: any[], keyField: string) => {
   return json
 }
 
+// Take a string and capitalises the first letter
+// hello world => Hello world
+export const capitalizeFirstLetter = (str: string) =>
+  str.charAt(0).toUpperCase() + str.slice(1)
+
+/** Show only items which are either accepted, the user has created, or an admin can see
+ * HACK - ARH - 2019/12/11 filter unaccepted howtos, should be done serverside
+ */
+export const filterModerableItems = <T>(
+  items: (IModerable & T)[],
+  user?: IUser,
+): T[] =>
+  items.filter(item => {
+    const isItemAccepted = item.moderation === 'accepted'
+    const wasCreatedByUser = user && item._createdBy === user.userName
+    const isAdminAndAccepted =
+      hasAdminRights(user) &&
+      item.moderation !== 'draft' &&
+      item.moderation !== 'rejected'
+
+    return isItemAccepted || wasCreatedByUser || isAdminAndAccepted
+  })
+
+/**
+ *  Function used to generate random ID in same manner as firestore
+ */
+export const randomID = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let autoId = ''
+  for (let i = 0; i < 20; i++) {
+    autoId += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return autoId
+}
+
 /************************************************************************
  *              Date Methods
  ***********************************************************************/
@@ -35,9 +80,9 @@ export const timestampToYear = (timestamp: number) => {
   return date.getFullYear()
 }
 
-export const getMonth = (d: Date) => {
+export const getMonth = (d: Date, monthType: 'long' | 'short' = 'long') => {
   // use ECMAScript Internationalization API to return month
-  return `${d.toLocaleString('en-us', { month: 'long' })}`
+  return `${d.toLocaleString('en-us', { month: monthType })}`
 }
 export const getDay = (d: Date) => {
   return `${d.getDate()}`
@@ -47,13 +92,48 @@ export const getDay = (d: Date) => {
  *             Validators
  ***********************************************************************/
 export const isEmail = (email: string) => {
+  // eslint-disable-next-line
   const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
   return re.test(email)
 }
 
-export const isAllowToEditContent = (doc: IEditableDoc, user: IUser) => {
+export const hasAdminRights = (user?: IUser) => {
+  if (!user) {
+    return false
+  }
+  if (isObservableObject(user)) {
+    user = toJS(user)
+  }
+
+  const roles =
+    user.userRoles && Array.isArray(user.userRoles) ? user.userRoles : []
+
+  if (roles.includes('admin') || roles.includes('super-admin')) {
+    return true
+  } else {
+    return false
+  }
+}
+
+export const needsModeration = (doc: IModerable, user?: IUser) => {
+  if (!hasAdminRights(user)) {
+    return false
+  }
+  return doc.moderation !== 'accepted'
+}
+
+export const isAllowToEditContent = (doc: IEditableDoc, user?: IUser) => {
+  if (!user) {
+    return false
+  }
+  if (isObservableObject(user)) {
+    user = toJS(user)
+  }
+  const roles =
+    user.userRoles && Array.isArray(user.userRoles) ? user.userRoles : []
   if (
-    (user.userRoles && user.userRoles.includes('super-admin')) ||
+    roles.includes('admin') ||
+    roles.includes('super-admin') ||
     (doc._createdBy && doc._createdBy === user.userName)
   ) {
     return true
@@ -62,18 +142,11 @@ export const isAllowToEditContent = (doc: IEditableDoc, user: IUser) => {
   }
 }
 
-/************************************************************************
- *             Country code to country name converters
- ***********************************************************************/
-export const getCountryCode = (countryName: string | undefined) => {
-  return Object.keys(countries).find(key => countries[key] === countryName)
-}
-
-export const getCountryName = (countryCode: string | undefined) => {
-  if (countries.hasOwnProperty(countryCode)) {
-    return countries[countryCode]
+export const isAllowToPin = (pin: IMapPin, user?: IUser) => {
+  if (hasAdminRights(user) || (pin._id && user && pin._id === user.userName)) {
+    return true
   } else {
-    return countryCode
+    return false
   }
 }
 
@@ -81,3 +154,6 @@ export const getCountryName = (countryCode: string | undefined) => {
 interface IEditableDoc extends DBDoc {
   _createdBy: string
 }
+
+// Convert theme em string to px number
+export const emStringToPx = width => Number(width.replace('em', '')) * 16

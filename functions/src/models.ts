@@ -1,7 +1,20 @@
-// tslint:disable no-implicit-dependencies
-// Models can be imported from the main package for use here
-// NOTE 1 - this requires adjustment main src in package.json
-// NOTE 2 - shorthand @OAModels notation defined in tsconfig
-import { IDBEndpoint, DBDoc } from '@OAModels/common.models'
+import * as functions from 'firebase-functions'
 
-export { IDBEndpoint, DBDoc }
+// Import and Re-export models from the main platform if required by functions
+import {
+  DBDoc,
+  IDBEndpoint,
+  IEventDB,
+  IHowtoDB,
+  IHowtoStats,
+  IUserDB,
+  IMapPin,
+} from 'one-army-community-platform/lib/models'
+export { DBDoc, IDBEndpoint, IEventDB, IHowtoDB, IHowtoStats, IUserDB, IMapPin }
+
+import { generateDBEndpoints } from 'oa-shared'
+export const DB_ENDPOINTS = generateDBEndpoints()
+
+export type IDBDocChange = functions.Change<
+  functions.firestore.DocumentSnapshot
+>

@@ -1,91 +1,103 @@
-/* tslint:disable:no-eval */
-import * as React from 'react'
+import React, { Suspense } from 'react'
 import { Switch, Route, BrowserRouter, Redirect } from 'react-router-dom'
+import GoogleAnalytics from 'src/components/GoogleAnalytics'
 import { NotFoundPage } from './NotFound/NotFound'
 import ScrollToTop from './../components/ScrollToTop/ScrollToTop'
 import Header from './common/Header/Header'
-import DevHelpers from 'src/components/DevHelpers/DevHelpers'
+import { SWUpdateNotification } from 'src/pages/common/SWUpdateNotification/SWUpdateNotification'
 import Main from 'src/pages/common/Layout/Main'
+import { Button } from 'src/components/Button'
+import type {
+  IPageMeta
+} from './PageList'
 import {
-  COMMUNITY_PAGES,
   COMMUNITY_PAGES_PROFILE,
-  COMMUNITY_PAGES_MORE,
   ADMIN_PAGES,
   NO_HEADER_PAGES,
+  POLICY_PAGES,
+  getAvailablePageList,
 } from './PageList'
-import { Link } from 'rebass'
-import styled from 'styled-components'
+import { Link, Flex } from 'rebass/styled-components'
+import DevSiteHeader from 'src/components/DevSiteHeader/DevSiteHeader'
+import { getSupportedModules } from 'src/modules'
 
-interface IState {
+export class Routes extends React.Component<any, {
   singlePageMode: boolean
   displayPageComponent?: any
-}
-
-const FeedbackBtn = styled(Link)`
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  padding: 8px;
-  border-radius: 4px;
-`
-
-export class Routes extends React.Component<any, IState> {
-  constructor(props: any) {
-    super(props)
-  }
-
+  supportedRoutes?: IPageMeta[]
+}> {
   public render() {
-    const pages = [
-      ...COMMUNITY_PAGES,
-      ...COMMUNITY_PAGES_PROFILE,
-      ...COMMUNITY_PAGES_MORE,
-      ...ADMIN_PAGES,
-      ...NO_HEADER_PAGES,
-    ]
     // we are rendering different pages and navigation dependent on whether the user has navigated directly to view the
     // entire site, or just one page of it via subdomains. This is so we can effectively integrate just parts of this
     // platform into other sites. The first case is direct nav
+    const menuItems = [
+        ...getAvailablePageList(getSupportedModules()),
+        ...COMMUNITY_PAGES_PROFILE,
+        ...ADMIN_PAGES,
+        ...NO_HEADER_PAGES,
+        ...POLICY_PAGES,
+      ];
+
     return (
-      <div>
-        <DevHelpers />
+      <Flex height={'100vh'} flexDirection="column" data-cy="page-container">
         <BrowserRouter>
+          <SWUpdateNotification />
+          <GoogleAnalytics />
           {/* on page change scroll to top */}
           <ScrollToTop>
-            <Switch>
-              {pages.map(page => (
+            {/* TODO - add better loading fallback */}
+            <DevSiteHeader />
+            <Header />
+            <Suspense fallback={<div></div>}>
+              <Switch>
+                {menuItems.map(page => (
+                  <Route
+                    exact={page.exact}
+                    path={page.path}
+                    key={page.path}
+                    render={() => (
+                      <React.Fragment>
+                        <Main
+                          data-cy="main-layout-container"
+                          style={{ flex: 1 }}
+                          customStyles={page.customStyles}
+                          ignoreMaxWidth={page.fullPageWidth}
+                        >
+                          <>{page.component}</>
+                        </Main>
+                      </React.Fragment>
+                    )}
+                  />
+                ))}
+                <Route component={NotFoundPage} />
+              </Switch>
+              <Switch>
                 <Route
-                  exact={page.exact}
-                  path={page.path}
-                  key={page.path}
-                  render={props => (
-                    <React.Fragment>
-                      <Header />
-                      <Main
-                        ignoreMaxWidth={page.fullPageWidth}
-                        style={page.customStyles}
-                      >
-                        <>{page.component}</>
-                      </Main>
-                    </React.Fragment>
-                  )}
+                  exact
+                  path="/"
+                  render={() => <Redirect to="/academy" />}
                 />
-              ))}
-              <Route component={NotFoundPage} />
-            </Switch>
-            <Switch>
-              <Route exact path="/" render={() => <Redirect to="/how-to" />} />
-            </Switch>
+              </Switch>
+            </Suspense>
           </ScrollToTop>
         </BrowserRouter>
-        <FeedbackBtn
-          bg={'yellow'}
-          color={'black'}
+        <Link
           target="_blank"
-          href={'https://preciousplastic.typeform.com/to/tO6uDw'}
+          href="https://discordapp.com/invite/cGZ5hKP"
+          data-cy="feedback"
+          sx={{ display: ['none', 'none', 'block'] }}
         >
-          Have a feedback ?
-        </FeedbackBtn>
-      </div>
+          <Button
+            sx={{ position: 'fixed', bottom: '30px', right: '30px' }}
+            variant="primary"
+          >
+            #Feedback? Join our chat{' '}
+            <span role="img" aria-label="talk-bubble">
+              💬
+            </span>
+          </Button>
+        </Link>
+      </Flex>
     )
   }
 }

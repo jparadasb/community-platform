@@ -3,18 +3,24 @@ import { HowtoStore } from 'src/stores/Howto/howto.store'
 import { inject, observer } from 'mobx-react'
 import Heading from 'src/components/Heading'
 import Icon from 'src/components/Icons'
-import { Flex } from 'rebass'
+import { Modal } from 'src/components/Modal/Modal'
+import { Button } from 'src/components/Button'
+import { Flex } from 'rebass/styled-components'
 import Text from 'src/components/Text'
-import { Box } from 'rebass'
+import { Box } from 'rebass/styled-components'
+import { RouteComponentProps } from 'react-router'
 
-interface IProps {}
-interface IInjected {
+interface IProps extends RouteComponentProps<any> {
+  onClose: () => void
+}
+interface IInjected extends IProps {
   howtoStore: HowtoStore
 }
 
 @inject('howtoStore')
 @observer
 export class HowToSubmitStatus extends React.Component<IProps> {
+  // eslint-disable-next-line
   constructor(props: IProps) {
     super(props)
   }
@@ -24,24 +30,46 @@ export class HowToSubmitStatus extends React.Component<IProps> {
   }
 
   render() {
-    const status = this.injected.howtoStore.uploadStatus
-    return (
-      <>
-        <Heading medium textAlign="center">
-          Uploading How To
-        </Heading>
-        <Box margin="auto" p={0}>
-          {Object.keys(status).map(key => (
+    const uploadStatus = this.injected.howtoStore.uploadStatus
+    return uploadStatus.Start ? (
+      <Modal>
+        <Flex justifyContent="space-between">
+          <Heading small textAlign="center">
+            Uploading How To
+          </Heading>
+          <Icon
+            glyph={'close'}
+            onClick={() => {
+              this.props.onClose()
+            }}
+          />
+        </Flex>
+        <Box margin="15px 0" p={0}>
+          {Object.keys(uploadStatus).map(key => (
             <Flex p={0} alignItems="center" key={key}>
               <Icon
                 marginRight="4px"
-                glyph={status[key] ? 'check' : 'loading'}
+                glyph={uploadStatus[key] ? 'check' : 'loading'}
               />
               <Text>| {key}</Text>
             </Flex>
           ))}
         </Box>
-      </>
-    )
+        <Button
+          data-cy={uploadStatus.Complete ? 'view-howto' : ''}
+          disabled={!uploadStatus.Complete}
+          variant={!uploadStatus.Complete ? 'disabled' : 'outline'}
+          icon="arrow-forward"
+          onClick={() => {
+            this.props.history.push(
+              '/how-to/' + this.injected.howtoStore.activeHowto!.slug,
+            )
+            this.props.onClose()
+          }}
+        >
+          View How-To
+        </Button>
+      </Modal>
+    ) : null
   }
 }

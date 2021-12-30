@@ -5,11 +5,11 @@ import Uppy from '@uppy/core'
 import { DashboardModal } from '@uppy/react'
 import { Button } from '../Button'
 import { UPPY_CONFIG } from './UppyConfig'
-import { Flex } from 'rebass'
+import { Flex } from 'rebass/styled-components'
 import { FileInfo } from '../FileInfo/FileInfo'
 
 interface IUppyFiles {
-  [key: string]: Uppy.UppyFile<{}>
+  [key: string]: Uppy.UppyFile
 }
 interface IProps {
   onFilesChange?: (files: (Blob | File)[]) => void
@@ -69,18 +69,19 @@ export class FileInput extends React.Component<IProps, IState> {
           {showFileList ? (
             <>
               <Button
-                small
                 onClick={() => this.toggleModal()}
                 icon="upload"
                 variant="outline"
-              />
+                mb={1}
+              >
+                Add Files (.zip)
+              </Button>
               {this.filesArray.map(file => (
                 <FileInfo key={file.name} file={file} />
               ))}
             </>
           ) : (
             <Button
-              small
               icon="upload"
               onClick={() => this.toggleModal()}
               type="button"

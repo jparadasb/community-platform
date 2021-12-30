@@ -6,10 +6,11 @@ import { HowtoStore } from 'src/stores/Howto/howto.store'
 import { inject } from 'mobx-react'
 import { toJS } from 'mobx'
 import { HowtoForm } from 'src/pages/Howto/Content/Common/Howto.form'
-import { Flex } from 'rebass'
-import Heading from 'src/components/Heading'
+import Text from 'src/components/Text'
 import { IUser } from 'src/models/user.models'
 import { isAllowToEditContent } from 'src/utils/helpers'
+import { Loader } from 'src/components/Loader'
+import { logger } from 'src/logger'
 
 interface IState {
   formValues: IHowtoDB
@@ -19,13 +20,13 @@ interface IState {
   showSubmitModal?: boolean
   loggedInUser?: IUser | undefined
 }
-interface IProps extends RouteComponentProps<any> {}
+type IProps = RouteComponentProps<any>
 interface IInjectedProps extends IProps {
   howtoStore: HowtoStore
 }
 
 @inject('howtoStore')
-export class EditHowto extends React.Component<IProps, IState> {
+class EditHowto extends React.Component<IProps, IState> {
   constructor(props: any) {
     super(props)
     this.state = {
@@ -36,7 +37,8 @@ export class EditHowto extends React.Component<IProps, IState> {
       loggedInUser: undefined,
     }
   }
-  public async componentWillMount() {
+  /* eslint-disable @typescript-eslint/naming-convention */
+  public async UNSAFE_componentWillMount() {
     const loggedInUser = this.injected.howtoStore.activeUser
     if (this.injected.howtoStore.activeHowto! !== undefined) {
       this.setState({
@@ -46,7 +48,7 @@ export class EditHowto extends React.Component<IProps, IState> {
       })
     } else {
       const slug = this.props.match.params.slug
-      const doc = await this.injected.howtoStore.getDocBySlug(slug)
+      const doc = await this.injected.howtoStore.setActiveHowtoBySlug(slug)
       this.setState({
         formValues: doc as IHowtoDB,
         isLoading: false,
@@ -62,21 +64,13 @@ export class EditHowto extends React.Component<IProps, IState> {
     return this.injected.howtoStore
   }
 
-  public onSubmit = async (formValues: IHowtoDB) => {
-    this.setState({ showSubmitModal: true })
-    console.log('onSubmit edit howto', formValues)
-
-    await this.store.uploadHowTo(formValues)
-  }
-
   public render() {
-    console.log('edit', this.state)
+    logger.debug('edit', this.state)
     const { formValues, isLoading, loggedInUser } = this.state
     if (formValues && !isLoading) {
       if (loggedInUser && isAllowToEditContent(formValues, loggedInUser)) {
         return (
           <HowtoForm
-            onSubmit={v => this.onSubmit(v as IHowtoDB)}
             formValues={formValues}
             parentType="edit"
             {...this.props}
@@ -87,14 +81,13 @@ export class EditHowto extends React.Component<IProps, IState> {
       }
     } else {
       return isLoading ? (
-        <Flex>
-          <Heading auxiliary txtcenter width={1}>
-            loading...
-          </Heading>
-        </Flex>
+        <Loader />
       ) : (
-        <div>How-to not found</div>
+        <Text txtcenter mt="50px" width={1}>
+          How-to not found
+        </Text>
       )
     }
   }
 }
+export default EditHowto

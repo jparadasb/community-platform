@@ -1,19 +1,13 @@
-import * as React from 'react'
+import React from 'react'
 import Flex from 'src/components/Flex'
 import Heading from 'src/components/Heading'
-import styled from 'styled-components'
 import theme from 'src/themes/styled.theme'
 import { Button } from 'src/components/Button'
 import Text from 'src/components/Text'
 import { Link } from 'src/components/Links'
+import { Link as ExternalLink } from 'rebass/styled-components'
 
-const Label = styled.label`
- font-size: ${theme.fontSizes[2] + 'px'}
- margin-bottom: ${theme.space[2] + 'px'}
- display: block;
-`
-
-export class SignUpMessagePage extends React.Component {
+class SignUpMessagePage extends React.Component {
   public render() {
     return (
       <Flex
@@ -26,10 +20,8 @@ export class SignUpMessagePage extends React.Component {
         mb={3}
       >
         <Flex flexDirection={'column'} width={1}>
-          <Flex card mediumRadius bg={'softblue'} px={3} py={2} width={1}>
-            <Heading medium width={1}>
-              Sent
-            </Heading>
+          <Flex card mediumRadius bg={theme.colors.softblue} px={3} py={2}>
+            <Heading medium>Sent</Heading>
           </Flex>
           <Flex
             card
@@ -43,7 +35,7 @@ export class SignUpMessagePage extends React.Component {
             flexWrap="wrap"
             flexDirection="column"
           >
-            <Heading small arrowDown py={4} width={1}>
+            <Heading small py={4} width={1}>
               Sign up successful
             </Heading>
             <Flex flexDirection={'column'} mb={3}>
@@ -52,17 +44,28 @@ export class SignUpMessagePage extends React.Component {
                 profile.
               </Text>
               <Text small color={'grey'} mt={2}>
-                Didn't receive the email? <Link to="#">Resend</Link>.
+                Didn't receive the email?{' '}
+                <ExternalLink
+                  color={theme.colors.grey}
+                  sx={{ textDecoration: 'underline' }}
+                  href="mailto:hello@onearmy.earth?subject=Email%20confirmation%20failed%20community-platform"
+                >
+                  Let us know
+                </ExternalLink>
+                .
               </Text>
             </Flex>
           </Flex>
           <Flex mt={3} justifyContent={'flex-end'}>
-            <Button variant="tertiary" small>
-              Home
-            </Button>
+            <Link to={'/'}>
+              <Button variant="secondary" data-cy="home">
+                Home
+              </Button>
+            </Link>
           </Flex>
         </Flex>
       </Flex>
     )
   }
 }
+export default SignUpMessagePage

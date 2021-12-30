@@ -1,13 +1,12 @@
-import * as React from 'react'
+import React from 'react'
 import Flex from 'src/components/Flex'
 import Heading from 'src/components/Heading'
 import styled from 'styled-components'
 import theme from 'src/themes/styled.theme'
 import { Button } from 'src/components/Button'
-import Text from 'src/components/Text'
-import { Link } from 'src/components/Links'
 import { Form, Field } from 'react-final-form'
 import { InputField } from 'src/components/Form/Fields'
+import { logger } from 'src/logger'
 
 const Label = styled.label`
  font-size: ${theme.fontSizes[2] + 'px'}
@@ -28,7 +27,7 @@ interface IProps {
   preloadValues?: any
 }
 
-export class ResendSignUpMessagePage extends React.Component<IProps, IState> {
+class ResendSignUpMessagePage extends React.Component<IProps, IState> {
   constructor(props: IProps) {
     super(props)
     this.state = {
@@ -39,7 +38,7 @@ export class ResendSignUpMessagePage extends React.Component<IProps, IState> {
   }
 
   onSignupSubmit(e) {
-    console.log(e)
+    logger.debug(e)
   }
 
   public render() {
@@ -77,7 +76,7 @@ export class ResendSignUpMessagePage extends React.Component<IProps, IState> {
                   flexWrap="wrap"
                   flexDirection="column"
                 >
-                  <Heading small arrowDown py={4} width={1}>
+                  <Heading small py={4} width={1}>
                     Resend email
                   </Heading>
                   <Flex flexDirection={'column'} mb={3}>
@@ -102,9 +101,7 @@ export class ResendSignUpMessagePage extends React.Component<IProps, IState> {
                   </Flex>
                 </Flex>
                 <Flex mt={3} justifyContent={'flex-end'}>
-                  <Button variant="tertiary" small>
-                    Home
-                  </Button>
+                  <Button variant="tertiary">Home</Button>
                 </Flex>
               </Flex>
             </Flex>
@@ -114,3 +111,4 @@ export class ResendSignUpMessagePage extends React.Component<IProps, IState> {
     )
   }
 }
+export default ResendSignUpMessagePage

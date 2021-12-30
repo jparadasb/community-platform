@@ -5,7 +5,10 @@ import { ISelectedTags } from 'src/models/tags.model'
 import { IDBEndpoint, ILocation } from 'src/models/common.models'
 import { includesAll } from 'src/utils/filters'
 import { RootStore } from '..'
-import { DBEndpoint } from '../databaseV2/types'
+import { IConvertedFileMeta } from 'src/components/ImageInput/ImageInput'
+import { IUploadedFileMeta, Storage } from '../storage'
+import { useCommonStores } from 'src/index'
+import { logger } from 'src/logger'
 
 /**
  * The module store is used to share methods and data between other stores, including
@@ -20,12 +23,27 @@ import { DBEndpoint } from '../databaseV2/types'
 export class ModuleStore {
   allDocs$ = new BehaviorSubject<any[]>([])
   private activeCollectionSubscription = new Subscription()
+  isInitialized = false
 
   // when a module store is initiated automatically load the docs in the collection
   // this can be subscribed to in individual stores
-  constructor(private rootStore: RootStore, basePath?: IDBEndpoint) {
-    if (basePath) {
-      this._subscribeToCollection(basePath)
+  constructor(private rootStore: RootStore, private basePath?: IDBEndpoint) {
+    if (!rootStore) {
+      this.rootStore = useCommonStores()
+    }
+  }
+
+  /**
+   * By default all stores are injected and made available on first app load.
+   * In order to avoid loading all data immediately, include an init function that can
+   * be called from a specific page load instead.
+   */
+  init() {
+    if (!this.isInitialized) {
+      if (this.basePath) {
+        this._subscribeToCollection(this.basePath)
+        this.isInitialized = true
+      }
     }
   }
 
@@ -33,8 +51,17 @@ export class ModuleStore {
   get db() {
     return this.rootStore.dbV2
   }
+
   get activeUser() {
     return this.rootStore.stores.userStore.user
+  }
+
+  get userStore() {
+    return this.rootStore.stores.userStore
+  }
+
+  get mapsStore() {
+    return this.rootStore.stores.mapsStore
   }
 
   /****************************************************************************
@@ -43,14 +70,12 @@ export class ModuleStore {
 
   // when accessing a collection want to call the database getCollection method which
   // efficiently checks the cache first and emits any subsequent updates
-  private _subscribeToCollection(endpoint: DBEndpoint) {
-    console.log('getting collection', endpoint)
+  private _subscribeToCollection(endpoint: IDBEndpoint) {
     this.allDocs$.next([])
     this.activeCollectionSubscription.unsubscribe()
     this.activeCollectionSubscription = this.db
       .collection(endpoint)
       .stream(data => {
-        console.log(`[${data.length}] [${endpoint}] docs received`)
         this.allDocs$.next(data)
       })
   }
@@ -59,27 +84,48 @@ export class ModuleStore {
    *            Data Validation Methods
    * **************************************************************************/
 
-  public isSlugUnique = async (slug: string, endpoint: IDBEndpoint) => {
-    try {
-      const matches = await this.db
-        .collection(endpoint)
-        .getWhere('slug', '==', slug)
-      return false
-      // TODO - Pending code merge
-      // return matches.length > 0
-    } catch (e) {
-      return 'Titles must be unique, please try being more specific'
+  public checkIsUnique = async (
+    endpoint: IDBEndpoint,
+    field: string,
+    value: string,
+    originalId?: string,
+  ) => {
+    const matches = await this.db
+      .collection(endpoint)
+      .getWhere(field, '==', value)
+    if (
+      typeof originalId !== 'undefined' &&
+      matches.length === 1 &&
+      matches[0]._id === originalId
+    ) {
+      return true
     }
+    return matches.length > 0 ? false : true
   }
 
-  public validateTitle = async (value: any, endpoint: IDBEndpoint) => {
-    if (value) {
-      const error = this.isSlugUnique(
-        stripSpecialCharacters(value).toLowerCase(),
+  /** Validator method to pass to react-final-form. Takes a given title,
+   *  converts to corresponding slug and checks uniqueness.
+   *  Provide originalId to prevent matching against own entry.
+   *  NOTE - return value represents the error, so FALSE actually means valid
+   */
+  public validateTitleForSlug = async (
+    title: string,
+    endpoint: IDBEndpoint,
+    originalId?: string,
+  ) => {
+    if (title) {
+      const slug = stripSpecialCharacters(title).toLowerCase()
+      const unique = await this.checkIsUnique(
         endpoint,
+        'slug',
+        slug,
+        originalId,
       )
-      return error
+      return unique
+        ? false
+        : 'Titles must be unique, please try being more specific'
     } else {
+      // if no title submitted, simply return message to say that it is required
       return 'Required'
     }
   }
@@ -110,6 +156,42 @@ export class ModuleStore {
     return collection.filter(obj => {
       return obj.location.name === selectedLocation.name
     })
+  }
+
+  public async uploadFileToCollection(
+    file: File | IConvertedFileMeta | IUploadedFileMeta,
+    collection: string,
+    id: string,
+  ) {
+    logger.debug('uploading file', file)
+    // if already uploaded (e.g. editing but not replaced), skip
+    if (file.hasOwnProperty('downloadUrl')) {
+      logger.debug('file already uploaded, skipping')
+      return file as IUploadedFileMeta
+    }
+    // switch between converted file meta or standard file input
+    let data: File | Blob = file as File
+    if (file.hasOwnProperty('photoData')) {
+      file = file as IConvertedFileMeta
+      data = file.photoData
+    }
+    return Storage.uploadFile(
+      `uploads/${collection}/${id}`,
+      file.name,
+      data,
+      file.type,
+    )
+  }
+
+  public async uploadCollectionBatch(
+    files: (File | IConvertedFileMeta)[],
+    collection: string,
+    id: string,
+  ) {
+    const promises = files.map(async file => {
+      return this.uploadFileToCollection(file, collection, id)
+    })
+    return Promise.all(promises)
   }
 }
 

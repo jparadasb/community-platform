@@ -1,4 +1,3 @@
-import * as React from 'react'
 import Heading from 'src/components/Heading'
 import Text from 'src/components/Text'
 import Flex from 'src/components/Flex'
@@ -6,7 +5,7 @@ import Flex from 'src/components/Flex'
 // TODO : create a component to avoid duplicate with how-to's guidelines
 
 export const PostingGuidelines = () => (
-  <Flex card mediumRadius flexDirection={'column'} bg="white" p={2}>
+  <Flex card mediumRadius flexDirection={'column'} bg="white" p={4}>
     <Heading medium bold mb={2}>
       Event Posting Guidelines
     </Heading>
@@ -21,9 +20,6 @@ export const PostingGuidelines = () => (
     </Text>
     <Text auxiliary mb={1}>
       4. Reach an army of likeminded people :)
-    </Text>
-    <Text auxiliary mb={1}>
-      5. For each steps try to use an image.
     </Text>
   </Flex>
 )

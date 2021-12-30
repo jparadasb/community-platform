@@ -1,10 +1,10 @@
 import { IDBEndpoint, DBDoc } from 'src/models/common.models'
-import { afs } from 'src/utils/firebase'
+import { firestore } from 'src/utils/firebase'
 import { DBQueryOptions, AbstractDBClient } from '../types'
 import { Observable, Observer } from 'rxjs'
 import { DB_QUERY_DEFAULTS } from '../utils/db.utils'
 
-const db = afs
+const db = firestore
 
 export class FirestoreClient implements AbstractDBClient {
   /************************************************************************
@@ -19,7 +19,6 @@ export class FirestoreClient implements AbstractDBClient {
   }
 
   async setDoc(endpoint: IDBEndpoint, doc: DBDoc) {
-    console.log('setting doc', endpoint, doc._id)
     return db.doc(`${endpoint}/${doc._id}`).set(doc)
   }
 
@@ -42,6 +41,12 @@ export class FirestoreClient implements AbstractDBClient {
     const data = await ref.get()
     return data.empty ? [] : data.docs.map(doc => doc.data() as T)
   }
+  deleteDoc(endpoint: IDBEndpoint, docId: string) {
+    return db
+      .collection(endpoint)
+      .doc(docId)
+      .delete()
+  }
 
   /************************************************************************
    *  Additional Methods - specific only to firestore
@@ -59,6 +64,17 @@ export class FirestoreClient implements AbstractDBClient {
     )
     return observer
   }
+  streamDoc<T>(endpoint: IDBEndpoint) {
+    const ref = db.doc(endpoint)
+    const observer: Observable<T> = Observable.create(
+      async (obs: Observer<T>) => {
+        ref.onSnapshot(snap => {
+          obs.next(snap.data() as T)
+        })
+      },
+    )
+    return observer
+  }
 
   // create a blank doc to generate an id
   generateFirestoreDocID(endpoint: IDBEndpoint) {
@@ -69,12 +85,14 @@ export class FirestoreClient implements AbstractDBClient {
   private _generateQueryRef(endpoint: IDBEndpoint, queryOpts: DBQueryOptions) {
     const query = { ...DB_QUERY_DEFAULTS, ...queryOpts }
     const { limit, orderBy, order, where } = query
-    const { field, operator, value } = where!
     const baseRef = db.collection(endpoint)
     const limitRef = limit ? baseRef.limit(limit) : baseRef
-    // if using where query ignore orderBy parameters to avoid need for composite indexes?
-    return where
-      ? limitRef.where(field, operator, value)
-      : limitRef.orderBy(field ? field : orderBy!, order!)
+    // if using where query ignore orderBy parameters to avoid need for composite indexes
+    if (where) {
+      const { field, operator, value } = where
+      return limitRef.where(field, operator, value)
+    } else {
+      return limitRef.orderBy(orderBy!, order!)
+    }
   }
 }

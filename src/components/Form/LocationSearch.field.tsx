@@ -1,4 +1,3 @@
-import React from 'react'
 import { IFieldProps } from './Fields'
 import { LocationSearch } from '../LocationSearch/LocationSearch'
 
@@ -10,12 +9,12 @@ interface IExtendedFieldProps extends IFieldProps {
 
 export const LocationSearchField = ({
   input,
-  meta,
   customChange,
   ...rest
 }: IExtendedFieldProps) => (
   <LocationSearch
     {...rest}
+    {...input}
     onChange={location => {
       // as validation happens on blur also want to artificially trigger when values change
       // (no native blur event)
@@ -25,6 +24,6 @@ export const LocationSearchField = ({
       }
       input.onBlur()
     }}
-    placeholder="Search for a location *"
+    placeholder="Search for a location"
   />
 )

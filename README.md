@@ -1,29 +1,36 @@
-[![Build Status](https://travis-ci.org/OneArmyWorld/onearmy.svg?branch=master)](https://travis-ci.org/OneArmyWorld/onearmy)
-[![style: styled-components](https://img.shields.io/badge/style-%F0%9F%92%85%20styled--components-orange.svg?colorB=daa357&colorA=db748e)](https://github.com/styled-components/styled-components)
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/from-referrer/)
+[![Build Status](https://circleci.com/gh/ONEARMY/community-platform/tree/master.svg?style=svg)](https://app.circleci.com/pipelines/github/ONEARMY/community-platform?branch=master)
+[![GitHub license](https://badgen.net/github/license/ONEARMY/community-platform)](https://github.com/ONEARMY/community-platform/blob/master/LICENSE)
+[![GitHub license](https://badgen.net/github/tag/ONEARMY/community-platform)](https://github.com/ONEARMY/community-platform/blob/master/LICENSE)
+[![GitHub contributors](https://img.shields.io/github/contributors/ONEARMY/community-platform)](https://github.com/ONEARMY/community-platform/graphs/contributors/)
+[![discord](https://badges.aleen42.com/src/discord.svg)](https://discord.gg/up3nBbEbxY)
 
-# 🌍 &nbsp; Onearmy
+# 🔗 &nbsp; tl;dr Quick Links
 
-Welcome to One Army!
-We are building a new platform to help unite people and contribute to social & environmental projects, such as [Precious Plastic](https://preciousplastic.com), [Phonebloks](https://phonebloks.com/), [ProjectKamp](https://projectkamp.com/) or [Story Hopper](https://story-hopper.com/). A platform to connect, educate and empower our global community (65K) to solve society's greatest challenges. Together. As One Army.
+- [Project Website](https://platform.onearmy.earth)
+- [Precious Plastic Community Platform (live site)](http://community.preciousplastic.com/)
+- [Developer documentation](https://onearmy.github.io/community-platform/)
+- [Contributing Guide](/CONTRIBUTING.md)
 
-## 👀 &nbsp; Why One Army
+# 🌍 &nbsp; Community Platform
+
+Welcome to our Community Platform!
+We are building this giant castle to help unite people and contribute to social & environmental projects, such as [Precious Plastic](https://preciousplastic.com), [Phonebloks](https://phonebloks.com/), [ProjectKamp](https://projectkamp.com/) or [Story Hopper](https://story-hopper.com/). A platform to connect, educate and empower our global community (65K) to solve society's greatest challenges. Together.
+
+## 👀 &nbsp; Why?
 
 For the past 5+ years we’ve worked together with thousands of people from all over the world on open hardware projects to tackle some of the most pressing environmental issues, building machines and tools to fix the mess. The more we worked on these projects, the more we realised that there are two main hurdles to the success of a project:
 
 - A project's success is closely linked to its community, and for a new project starting up, finding and creating their own strong community is often a time-consuming activity that can take lots of resources.
 - While working on a project we often find ourselves having to use a multitude of digital tools that are often incomplete, disconnected, privately owned and not open source.
 
-One Army aims to tackle these problems by creating a strong unified community for the different projects under its umbrella and offering the necessary tools to collaborate and connect in one single place. Free and opensource.
+This platform aims to tackle these problems by creating a strong unified community for the different projects under its umbrella and offering the necessary tools to collaborate and connect in one single place. Free and opensource.
 
-## ⚡️ &nbsp; What is One Army
+## ⚡️ &nbsp; What is this platform?
 
-The One Army platform helps people to connect and collaborate on environmental projects in one single place. A place where people can meet, help each other, ask and answer questions, share their innovative ways of fixing problems, discover people around them, connect locally, find events and more. One Army aims to provide the tools to connect both online and offline. Amongst other features we have Newsfeed, How-to, Q&A, Discussion, Events, Discover, Maps and more.
+Our community platform helps people to grow communites and make it easier to collaborate on environmental projects in one single place. A place where people can meet, help each other, ask and answer questions, share their innovative ways of fixing problems, discover people around them, connect locally, find events and more. It aims to provide the tools to connect both online and offline. Amongst other features we have How-to, Events and Maps.
 
-Check our video for more informations :
-
-<a href="https://www.youtube.com/watch?feature=player_embedded&v=IN_3SzDARKA
-" target="_blank"><img src="https://img.youtube.com/vi/IN_3SzDARKA/0.jpg" 
-alt="One army presentation video" width="240" height="180" /></a>
+### Have a look on our [website](https://platform.onearmy.earth) to have a clear overview
 
 ## 👐 Open Source
 
@@ -34,10 +41,12 @@ Society and the environment are kind of screwed 💩 in many ways. We think free
 Contributions, issues and feature requests are very welcome.
 Please make sure to read the [Contributing Guide](/CONTRIBUTING.md) before making a pull request.
 
+It also covers lots of handy additional information such as setting up a local server, or finding [good first issues](https://github.com/ONEARMY/community-platform/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3A%22Good+first+issue%22++label%3A%22Help+wanted%22+) to work on
+
 ## 🌟 &nbsp; Core Team
 
-If needed you can [drop us a line here](mailto:hello@onearmy.world?subject=contact%20from%20github) 👋
-Or join our [Discord channel](https://discord.gg/AKuxkpx)
+If needed you can [drop us a line here](mailto:platform@onearmy.earth?subject=contact%20from%20github) 👋
+Or join our [Discord channel](https://discordapp.com/invite/rnx7m4t)
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore -->

@@ -1,14 +1,12 @@
 import * as React from 'react'
-import ReactFlagsSelect from 'react-flags-select'
 import Select from 'react-select'
 import { Props as SelectProps } from 'react-select/lib/Select'
 import { Styles } from 'react-select/lib/styles'
 import theme from 'src/themes/styled.theme'
-import { getCountryName } from 'src/utils/helpers'
-import { background } from 'styled-system'
 import { Flex } from 'src/components/Flex'
 import { ErrorMessage, FieldContainer } from './elements'
 import { IFieldProps } from './Fields'
+import { DropdownIndicator } from '../DropdownIndicator'
 
 interface ISelectOption {
   value: string
@@ -18,119 +16,132 @@ interface ISelectFieldProps extends IFieldProps, SelectProps {
   options?: ISelectOption[]
   placeholder?: string
   style?: React.CSSProperties
+  onCustomChange?: (value) => void
 }
 
 // TODO - better bind the above input styles to the react-select component
 // (currently implements its own styling with following overrides)
 export const SelectStyles: Partial<Styles> = {
-  container: (provided, state) => ({
+  container: provided => ({
     ...provided,
-    fontSize: theme.fontSizes[1] + 'px',
+    fontSize: theme.fontSizes[2] + 'px',
     fontFamily: '"Varela Round", Arial, sans-serif',
   }),
-  control: (provided, state) => ({
+  control: provided => ({
     ...provided,
-    border: '1px solid #dce4e5',
+    border: '1px solid ' + theme.colors.softblue,
     backgroundColor: theme.colors.background,
     minHeight: '40px',
     boxShadow: 'none',
     ':focus': {
-      border: '1px solid #83ceeb',
+      border: '1px solid ' + theme.colors.blue,
       outline: 'none',
     },
     ':hover': {
-      border: '1px solid #83ceeb',
+      border: '1px solid ' + theme.colors.blue,
     },
   }),
 
-  option: (provided, state) => ({
+  option: provided => ({
     ...provided,
     backgroundColor: theme.colors.background,
     boxShadow: 'none',
+    color: theme.colors.black,
     ':hover': {
       outline: 'none',
-      backgroundColor: 'white',
-      color: 'black',
+      backgroundColor: theme.colors.white,
+      color: theme.colors.black,
     },
   }),
 
-  menu: (provided, state) => ({
+  menu: provided => ({
     ...provided,
-    border: '1px solid #dce4e5',
+    border: '1px solid ' + theme.colors.softblue,
     boxShadow: 'none',
     backgroundColor: theme.colors.background,
     ':hover': {
-      border: '1px solid #dce4e5',
+      border: '1px solid ' + theme.colors.softblue,
     },
   }),
 
-  multiValue: (provided, state) => ({
+  multiValue: provided => ({
     ...provided,
-    backgroundColor: '#e2edf7',
+    backgroundColor: theme.colors.softblue,
     padding: '2px',
-    border: '1px solid #c2d4e4',
-    color: '#61646b',
+    border: '1px solid ' + theme.colors.softgrey,
+    color: theme.colors.grey,
   }),
 
-  indicatorSeparator: (provided, state) => ({
+  indicatorSeparator: provided => ({
     ...provided,
     display: 'none',
+  }),
+
+  dropdownIndicator: (provided, state) => ({
+    ...provided,
+    ':hover': {
+      opacity: state.isFocused ? 1 : 0.5,
+    },
+    opacity: state.isFocused ? 1 : 0.3,
   }),
 }
 
 export const FilterStyles: Partial<Styles> = {
-  container: (provided, state) => ({
+  container: provided => ({
     ...provided,
-    fontSize: theme.fontSizes[1] + 'px',
+    fontSize: theme.fontSizes[2] + 'px',
     fontFamily: '"Varela Round", Arial, sans-serif',
-    border: '2px solid black',
+    border: '2px solid ' + theme.colors.black,
     borderRadius: '5px',
-    color: 'black',
+    color: theme.colors.black,
   }),
-  control: (provided, state) => ({
+  control: provided => ({
     ...provided,
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.white,
     minHeight: '40px',
     boxShadow: 'none',
     ':hover': {
-      border: '1px solid #83ceeb',
+      border: '1px solid ' + theme.colors.blue,
     },
     ':focus': {
-      border: '1px solid #83ceeb',
+      border: '1px solid ' + theme.colors.blue,
     },
   }),
-
-  option: (provided, state) => ({
-    color: 'black',
+  placeholder: provided => ({
     ...provided,
-    backgroundColor: 'white',
+    color: theme.colors.black,
+  }),
+  option: provided => ({
+    ...provided,
+    color: theme.colors.black,
+    backgroundColor: theme.colors.white,
     boxShadow: 'none',
     ':hover': {
       outline: 'none',
-      backgroundColor: '#e2edf7',
-      color: 'black',
+      backgroundColor: theme.colors.softblue,
+      color: theme.colors.black,
     },
   }),
 
-  menu: (provided, state) => ({
+  menu: provided => ({
     ...provided,
-    border: '2px solid black',
+    border: '2px solid ' + theme.colors.black,
     boxShadow: 'none',
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.white,
     ':hover': {
-      border: '2px solid black',
+      border: '2px solid ' + theme.colors.black,
     },
   }),
 
-  multiValue: (provided, state) => ({
+  multiValue: provided => ({
     ...provided,
-    backgroundColor: '#e2edf7',
+    backgroundColor: theme.colors.softblue,
     padding: '2px',
-    border: '1px solid black',
-    color: '#61646b',
+    border: '1px solid ' + theme.colors.black,
+    color: theme.colors.grey,
   }),
 
-  indicatorSeparator: (provided, state) => ({
+  indicatorSeparator: provided => ({
     ...provided,
     display: 'none',
   }),
@@ -166,37 +177,39 @@ const defaultProps: Partial<ISelectFieldProps> = {
   getOptionValue: (option: ISelectOption) => option.value,
   options: [],
 }
-export const SelectField = ({ input, meta, ...rest }: ISelectFieldProps) => (
-  // note, we first use a div container so that default styles can be applied
-  <Flex p={0} flexWrap="wrap">
-    <FieldContainer invalid={meta.error && meta.touched} style={rest.style}>
-      <Select
-        styles={SelectStyles}
-        onChange={v => {
-          input.onChange(getValueFromSelect(v))
-        }}
-        onBlur={input.onBlur}
-        onFocus={input.onFocus}
-        value={getValueForSelect(rest.options, input.value)}
-        {...defaultProps}
-        {...rest}
-      />
-    </FieldContainer>
-    {meta.error && meta.touched && <ErrorMessage>{meta.error}</ErrorMessage>}
-  </Flex>
-)
 
-export const FlagSelector = ({ input, meta, ...rest }: ISelectFieldProps) => (
+export const SelectField = ({
+  input,
+  meta,
+  onCustomChange,
+  ...rest
+}: ISelectFieldProps) => (
+  // note, we first use a div container so that default styles can be applied
   <>
-    <ReactFlagsSelect
-      onSelect={v => {
-        input.onChange(getCountryName(v))
-      }}
-      onBlur={input.onBlur}
-      onFocus={input.onFocus}
-      {...defaultProps}
-      {...rest}
-    />
-    {/* meta.error && meta.touched && <ErrorMessage>{meta.error}</ErrorMessage> */}
+    <Flex p={0} flexWrap="nowrap">
+      <FieldContainer
+        invalid={meta.error && meta.touched}
+        style={rest.style}
+        data-cy={rest['data-cy']}
+      >
+        <Select
+          styles={SelectStyles}
+          onChange={v => {
+            input.onChange(getValueFromSelect(v as any))
+            if (onCustomChange) {
+              onCustomChange(getValueFromSelect(v as any))
+            }
+          }}
+          onBlur={input.onBlur as any}
+          onFocus={input.onFocus as any}
+          value={getValueForSelect(rest.options, input.value)}
+          classNamePrefix={'data-cy'}
+          components={{ DropdownIndicator }}
+          {...defaultProps}
+          {...rest}
+        />
+      </FieldContainer>
+    </Flex>
+    {meta.error && meta.touched && <ErrorMessage>{meta.error}</ErrorMessage>}
   </>
 )

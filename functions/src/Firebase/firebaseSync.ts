@@ -1,8 +1,7 @@
-// tslint:disable no-implicit-dependencies
-// import { IDBEndpoint } from '@OAModels/common.models'
+
 import * as rtdb from './realtimeDB'
 import * as firestore from './firestoreDB'
-import { IDBEndpoint, DBDoc } from '../models'
+import { DBDoc, DB_ENDPOINTS } from '../models'
 
 /*  Functions in this folder are used to sync data between firestore and firebase realtime databases
     The reason for this is to allow large collections to be 'cached' for cheap retrieval
@@ -13,14 +12,8 @@ import { IDBEndpoint, DBDoc } from '../models'
     https://github.com/OneArmyWorld/onearmy/wiki/Backend-Database
 */
 
-const endpoints: IDBEndpoint[] = [
-  'v2_events',
-  'v2_howtos',
-  'v2_mappins',
-  'v2_tags',
-  // NOTE - do not want to keep list of sync'd users
-  // 'v2_users',
-]
+// List of endpoints to use during sync operations, taken from common db mapping
+const endpoints = Object.values(DB_ENDPOINTS)
 
 export const syncAll = async () => {
   const promises = endpoints.map(async endpoint => await sync(endpoint))
@@ -32,7 +25,7 @@ export const syncAll = async () => {
 
 // for given endpoint, query rtdb for all records, determin latest,
 // query firestore for newer records, add to rtdb
-export const sync = async (endpoint: IDBEndpoint) => {
+export const sync = async (endpoint: string) => {
   const existing = await rtdb.get(endpoint)
   const latest =
     existing && Object.keys(existing).length > 1
@@ -53,10 +46,4 @@ export const sync = async (endpoint: IDBEndpoint) => {
 
 function _sortByModified(a: DBDoc, b: DBDoc) {
   return a._modified > b._modified ? -1 : 1
-}
-
-export const test = async () => {
-  const endpoint: IDBEndpoint = 'v2_howtos'
-  const data = await rtdb.get(endpoint)
-  return Object.values(data)
 }

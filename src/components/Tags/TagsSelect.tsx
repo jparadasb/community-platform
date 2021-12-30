@@ -1,4 +1,4 @@
-import * as React from 'react'
+import { Component } from 'react'
 import { inject, observer } from 'mobx-react'
 import { TagsStore } from 'src/stores/Tags/tags.store'
 import { ISelectedTags, ITag, TagCategory } from 'src/models/tags.model'
@@ -6,14 +6,16 @@ import { FieldRenderProps } from 'react-final-form'
 import Select from 'react-select'
 import { SelectStyles, FilterStyles } from '../Form/Select.field'
 import { FieldContainer } from '../Form/elements'
+import { DropdownIndicator } from '../DropdownIndicator'
 
 // we include props from react-final-form fields so it can be used as a custom field component
-export interface IProps extends FieldRenderProps<any, any> {
+export interface IProps extends Partial<FieldRenderProps<any, any>> {
   value?: ISelectedTags
   onChange: (val: ISelectedTags) => void
-  category: TagCategory | undefined
-  styleVariant: 'selector' | 'filter'
-  placeholder: string
+  category?: TagCategory | undefined
+  styleVariant?: 'selector' | 'filter'
+  placeholder?: string
+  relevantTagsItems?: ICollectionWithTags[]
 }
 interface IState {
   selectedTags: string[]
@@ -22,9 +24,13 @@ interface InjectedProps extends IProps {
   tagsStore: TagsStore
 }
 
+interface ICollectionWithTags {
+  tags?: ISelectedTags
+}
+
 @inject('tagsStore')
 @observer
-class TagsSelect extends React.Component<IProps, IState> {
+class TagsSelect extends Component<IProps, IState> {
   public static defaultProps: IProps
   constructor(props: any) {
     super(props)
@@ -37,7 +43,7 @@ class TagsSelect extends React.Component<IProps, IState> {
   // if we initialise with a value we want to update the state to reflect the selected tags
   // we repeat this additionally for input in case it is being used as input component for react-final-form field
   public componentDidMount() {
-    const propsVal = { ...this.props.value, ...this.props.input.value }
+    const propsVal = { ...this.props.value, ...this.props.input!.value }
     const selectedTags = Object.keys(propsVal)
     this.setState({ selectedTags })
     this.props.onChange(propsVal)
@@ -52,11 +58,24 @@ class TagsSelect extends React.Component<IProps, IState> {
   }
 
   public render() {
-    const { categoryTags } = this.injectedProps.tagsStore
+    let { categoryTags } = this.injectedProps.tagsStore
+    const relevantTagsItems = this.injectedProps.relevantTagsItems
+
+    if (relevantTagsItems) {
+      const tagCounts = this._getTagCounts(relevantTagsItems)
+      categoryTags = categoryTags.filter(tag =>
+        Object.keys(tagCounts).includes(tag._id),
+      )
+    }
+
     const { styleVariant } = this.props
     return (
-      <FieldContainer>
+      <FieldContainer
+        // provide a data attribute that can be used to see if tags populated
+        data-cy={categoryTags?.length > 0 ? 'tag-select' : 'tag-select-empty'}
+      >
         <Select
+          components={{ DropdownIndicator }}
           styles={styleVariant === 'selector' ? SelectStyles : FilterStyles}
           isMulti
           options={categoryTags}
@@ -65,6 +84,7 @@ class TagsSelect extends React.Component<IProps, IState> {
           getOptionValue={(tag: ITag) => tag._id}
           onChange={values => this.onSelectedTagsChanged(values as ITag[])}
           placeholder={this.props.placeholder}
+          classNamePrefix={'data-cy'}
         />
       </FieldContainer>
     )
@@ -73,7 +93,7 @@ class TagsSelect extends React.Component<IProps, IState> {
   // as react-select can't keep track of which object key corresponds to the selected
   // value include manual lookup so that value can also be passed from props
   private _getSelected(categoryTags: ITag[]) {
-    return categoryTags.filter(tag => this.state.selectedTags.includes(tag._id))
+    return categoryTags?.filter(tag => this.state.selectedTags.includes(tag._id))
   }
 
   // whilst we deal with arrays of selected tag ids in the component we want to store as a json map
@@ -83,6 +103,21 @@ class TagsSelect extends React.Component<IProps, IState> {
     const selectedJson = {}
     arr.forEach(el => (selectedJson[el] = true))
     return selectedJson
+  }
+
+  // we want to display only those tags that return results, meaning they are used by how-tos, events, etc
+  private _getTagCounts(items: ICollectionWithTags[]) {
+    const tagCounts: { [key: string]: number } = {}
+
+    items.map(
+      item =>
+        item.tags &&
+        Object.keys(item.tags).forEach(
+          tag => (tagCounts[tag] = (tagCounts[tag] || 0) + 1),
+        ),
+    )
+
+    return tagCounts
   }
 }
 
@@ -94,7 +129,7 @@ export default TagsSelect
 // default onChange calls the input onChange function (linked to react-final-form)
 TagsSelect.defaultProps = {
   onChange: val => {
-    TagsSelect.defaultProps.input.onChange(val)
+    TagsSelect.defaultProps.input!.onChange(val)
   },
   input: {
     name: 'tagsSelect',
@@ -107,5 +142,5 @@ TagsSelect.defaultProps = {
   value: {},
   category: undefined,
   styleVariant: 'selector',
-  placeholder: 'Select tags - 4 maximum',
+  placeholder: 'Select tags (max 4)',
 }

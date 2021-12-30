@@ -1,12 +1,10 @@
-import React from 'react'
-import { Flex, Box, Text, Button } from 'rebass'
+import { Box, BoxProps } from 'rebass/styled-components'
 import styled from 'styled-components'
 import theme from 'src/themes/styled.theme'
 import WhiteBubble0 from 'src/assets/images/white-bubble_0.svg'
 import WhiteBubble1 from 'src/assets/images/white-bubble_1.svg'
 import WhiteBubble2 from 'src/assets/images/white-bubble_2.svg'
 import WhiteBubble3 from 'src/assets/images/white-bubble_3.svg'
-import { BoxProps } from 'rebass'
 
 const MoreModalContainer = styled(Box)`
   position: relative;
@@ -16,7 +14,7 @@ const MoreModalContainer = styled(Box)`
     background-image: url(${WhiteBubble0});
     width: 100%;
     height: 100%;
-    z-index: -1;
+    z-index: ${theme.zIndex.behind};
     background-size: contain;
     background-repeat: no-repeat;
     position: absolute;
@@ -44,19 +42,8 @@ const MoreModalContainer = styled(Box)`
   }
 `
 
-const MoreText = styled(Text)`
-  text-align: center;
-  font-size: 26px;
-
-  margin: 0 auto;
-  padding: 0px 20px;
-`
-
 export const MoreContainer = (props: BoxProps) => (
-  <MoreModalContainer {...props}>
-    {/* <MoreText color={'black'}>{props.text}</MoreText> */}
-    {props.children}
-  </MoreModalContainer>
+  <MoreModalContainer {...(props as any)}>{props.children}</MoreModalContainer>
 )
 
 export default MoreContainer
